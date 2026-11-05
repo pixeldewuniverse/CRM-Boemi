@@ -1,0 +1,53 @@
+@import "tailwindcss";
+
+/* Placeholder BOEMI-inspired earthy palette — swap for the final brand tokens. */
+:root {
+  --background: #f6f2ea;
+  --surface: #fffdf8;
+  --foreground: #2b2a26;
+  --muted: #6f6a5f;
+  --border: #e3dccd;
+  --primary: #3e4a3a;
+  --primary-foreground: #f6f2ea;
+  --accent: #b0714f;
+  --hot: #b0482f;
+  --warm: #c08a2e;
+  --cold: #5b7a8c;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #171713;
+    --surface: #211f1a;
+    --foreground: #ece6da;
+    --muted: #a39d90;
+    --border: #36322a;
+    --primary: #a9b89f;
+    --primary-foreground: #171713;
+    --accent: #d39a78;
+    --hot: #e07a5f;
+    --warm: #e0b45a;
+    --cold: #8fb0c2;
+  }
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-surface: var(--surface);
+  --color-foreground: var(--foreground);
+  --color-muted: var(--muted);
+  --color-border: var(--border);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-accent: var(--accent);
+  --color-hot: var(--hot);
+  --color-warm: var(--warm);
+  --color-cold: var(--cold);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+}
