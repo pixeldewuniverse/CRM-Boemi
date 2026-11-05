@@ -14,6 +14,9 @@ const nextConfig: NextConfig = {
       },
     },
   },
+  async redirects() {
+    return [{ source: "/customers", destination: "/database/accounts", permanent: false }];
+  },
   async headers() {
     return [
       {

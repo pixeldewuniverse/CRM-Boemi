@@ -53,7 +53,8 @@ Login dengan `sales@example.test` (atau `admin@` / `manager@`) dan password dari
 ```
 src/
   app/
-    (app)/            halaman yang butuh login: dashboard, customers, notifications
+    (app)/            halaman yang butuh login (shell menu ala demo)
+      [section]/[page]/  semua submenu yang belum dibangun → placeholder modul
     login/            halaman login
     actions/          Server Actions (auth, notifikasi)
     api/
@@ -64,6 +65,8 @@ src/
     schema.ts         skema Phase 1 (16 tabel)
     seed.ts           data dummy
   lib/
+    nav.ts            menu & submenu (10 menu, 41 submenu, sama dengan demo.pixeldew.xyz)
+    roles.ts          daftar role + label
     auth.ts           Data Access Layer: getCurrentUser / verifyUser / requireRole
     customers.ts      scope data per role (sales hanya lihat customer miliknya)
     notifications/    notifikasi in-app + email (+ preferensi per user)
@@ -75,6 +78,10 @@ src/
   proxy.ts            redirect cepat ke /login bila belum ada cookie
 drizzle/              file migrasi SQL (commit ke git)
 ```
+
+## Menu
+
+Struktur menu mengikuti demo Phase 1 (`demo.pixeldew.xyz`) dan didefinisikan di `src/lib/nav.ts`. Setiap submenu punya URL `/<menu>/<halaman>`. Submenu yang belum dibangun menampilkan halaman placeholder berisi tujuan modul, status (In development / Next stage / Add-on) dan link ke layar yang sama di demo. Untuk membangun satu modul, buat `src/app/(app)/<menu>/<halaman>/page.tsx` lalu set `ready: true` di `nav.ts`.
 
 ## Skema Phase 1
 

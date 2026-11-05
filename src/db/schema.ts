@@ -6,6 +6,7 @@
  * Money is stored as whole Rupiah in bigint.
  */
 import { relations, sql } from "drizzle-orm";
+import { ROLES } from "../lib/roles";
 import {
   type AnyPgColumn,
   bigint,
@@ -25,14 +26,7 @@ import {
 
 /* ───────────────────────── Enums ───────────────────────── */
 
-export const roleEnum = pgEnum("role", [
-  "admin",
-  "executive",
-  "sales_manager",
-  "sales",
-  "marketing",
-  "finance",
-]);
+export const roleEnum = pgEnum("role", ROLES);
 
 export const customerStatusEnum = pgEnum("customer_status", [
   "lead",

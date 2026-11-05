@@ -5,7 +5,9 @@ import { and, eq } from "drizzle-orm";
 import { getDb, schema } from "@/db";
 import { getSession } from "./session";
 
-export type Role = (typeof schema.roleEnum.enumValues)[number];
+import type { Role } from "./roles";
+
+export type { Role };
 
 export type CurrentUser = {
   id: string;

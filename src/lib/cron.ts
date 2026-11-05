@@ -55,7 +55,7 @@ async function taskReminders() {
       body: task.dueAt
         ? `Due ${task.dueAt.toLocaleString("id-ID", { timeZone: "Asia/Jakarta" })}`
         : undefined,
-      link: `/tasks/${task.id}`,
+      link: "/sales/tasks",
     });
     await db
       .update(schema.tasks)
@@ -96,7 +96,7 @@ async function pendingVisitFees() {
     userIds: approvers.map((a) => a.id),
     type: "visit_fee.pending",
     title: `${pending.length} visit fee(s) waiting for approval`,
-    link: "/approvals",
+    link: "/sales/visits",
   });
   return { pending: pending.length };
 }

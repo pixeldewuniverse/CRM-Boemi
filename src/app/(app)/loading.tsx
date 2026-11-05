@@ -1,8 +1,9 @@
 export default function Loading() {
   return (
-    <div className="space-y-3" aria-busy="true">
-      <div className="h-7 w-48 animate-pulse rounded bg-border" />
-      <div className="h-32 animate-pulse rounded-xl bg-border/60" />
+    <div className="flex flex-col gap-4" aria-busy="true">
+      <div className="h-8 w-64 animate-pulse rounded bg-surface-2" />
+      <div className="h-4 w-96 max-w-full animate-pulse rounded bg-surface-2" />
+      <div className="h-40 animate-pulse rounded-xl bg-surface-2" />
     </div>
   );
 }

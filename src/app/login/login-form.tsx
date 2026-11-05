@@ -12,36 +12,36 @@ export function LoginForm() {
     <form action={action} className="mt-6 space-y-4">
       <input type="hidden" name="next" value={next} />
       <label className="block text-sm">
-        <span className="font-medium">Email</span>
+        <span className="font-semibold">Email</span>
         <input
           name="email"
           type="email"
           autoComplete="email"
           required
-          className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 outline-none focus:border-primary"
+          className="input mt-1"
         />
       </label>
       <label className="block text-sm">
-        <span className="font-medium">Password</span>
+        <span className="font-semibold">Password</span>
         <input
           name="password"
           type="password"
           autoComplete="current-password"
           required
-          className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 outline-none focus:border-primary"
+          className="input mt-1"
         />
       </label>
       {state.error && (
-        <p role="alert" className="text-sm text-hot">
+        <p role="alert" className="text-sm text-bad">
           {state.error}
         </p>
       )}
       <button
         type="submit"
         disabled={pending}
-        className="w-full rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground disabled:opacity-60"
+        className="btn btn-primary w-full justify-center py-2.5"
       >
-        {pending ? "Memproses…" : "Masuk"}
+        {pending ? "Signing in…" : "Sign in"}
       </button>
     </form>
   );

@@ -25,7 +25,7 @@ export async function login(_prev: LoginState, formData: FormData): Promise<Logi
     password: formData.get("password"),
     next: formData.get("next") ?? undefined,
   });
-  if (!parsed.success) return { error: "Masukkan email dan password yang valid." };
+  if (!parsed.success) return { error: "Enter a valid email and password." };
 
   const { email, password, next } = parsed.data;
   const [user] = await getDb()
@@ -40,7 +40,7 @@ export async function login(_prev: LoginState, formData: FormData): Promise<Logi
 
   const ok = await bcrypt.compare(password, user?.passwordHash ?? DUMMY_HASH);
   if (!user || !user.active || !user.passwordHash || !ok) {
-    return { error: "Email atau password salah." };
+    return { error: "Incorrect email or password." };
   }
 
   const session = await getSession();

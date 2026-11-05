@@ -4,8 +4,9 @@ import { and, count, eq, inArray, lt } from "drizzle-orm";
 import { getDb, schema } from "@/db";
 import { getCurrentUser } from "@/lib/auth";
 import { customerScope } from "@/lib/customers";
+import { PageTitle } from "@/components/page/page-title";
 
-export const metadata: Metadata = { title: "Dashboard" };
+export const metadata: Metadata = { title: "Overview" };
 
 export default async function DashboardPage() {
   const user = await getCurrentUser();
@@ -38,29 +39,29 @@ export default async function DashboardPage() {
   ]);
 
   const stats = [
-    { label: "Customers", value: customers.n },
+    { label: "Accounts", value: customers.n },
     { label: "Hot leads", value: hot.n },
-    { label: "Tugas aktif", value: openTasks.n },
-    { label: "Tugas terlambat", value: overdue.n, alert: overdue.n > 0 },
-    { label: "Visit fee menunggu approval", value: pendingFees.n },
+    { label: "Open tasks", value: openTasks.n },
+    { label: "Overdue tasks", value: overdue.n, alert: overdue.n > 0 },
+    { label: "Visit fees awaiting approval", value: pendingFees.n },
   ];
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold">Halo, {user.name.split(" ")[0]}</h1>
-        <p className="text-sm text-muted">Ringkasan pekerjaan kamu hari ini.</p>
-      </div>
+    <>
+      <PageTitle
+        title={`Hello, ${user.name.split(" ")[0]}`}
+        description="Today's work and what needs your attention."
+      />
       <dl className="grid grid-cols-2 gap-3 lg:grid-cols-5">
         {stats.map((s) => (
-          <div key={s.label} className="rounded-xl border border-border bg-surface p-4">
+          <div key={s.label} className="panel p-4">
             <dt className="text-xs text-muted">{s.label}</dt>
-            <dd className={`mt-1 text-2xl font-semibold tabular-nums ${s.alert ? "text-hot" : ""}`}>
+            <dd className={`mt-1 text-2xl font-bold tabular-nums ${s.alert ? "text-bad" : ""}`}>
               {s.value}
             </dd>
           </div>
         ))}
       </dl>
-    </div>
+    </>
   );
 }
