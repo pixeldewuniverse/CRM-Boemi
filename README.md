@@ -26,6 +26,14 @@ npm run db:seed               # data dummy: admin/manager/sales @example.test
 npm run dev
 ```
 
+### Di Vercel (tanpa terminal)
+
+Script `vercel-build` otomatis menjalankan **migrasi** lalu **seed dummy** setiap deploy, sebelum `next build`:
+
+1. Set env di Vercel: `SESSION_SECRET`, `CRON_SECRET`, `APP_URL`, dan `SEED_ADMIN_PASSWORD` (sekali saja).
+2. Redeploy → tabel + akun demo terbentuk.
+3. Setelah berhasil login, **hapus `SEED_ADMIN_PASSWORD`** dari Vercel. Seed tidak akan jalan lagi; migrasi tetap jalan otomatis di setiap deploy.
+
 Login dengan `sales@example.test` (atau `admin@` / `manager@`) dan password dari `SEED_ADMIN_PASSWORD`.
 
 ### Script

@@ -3,6 +3,10 @@
  * staging database — real data goes in after the move to BOEMI's Google Cloud.
  *
  *   npm run db:seed
+ *
+ * On Vercel it also runs during every build (`vercel-build`) with --optional:
+ * it only seeds when SEED_ADMIN_PASSWORD is set and the demo users don't
+ * exist yet. Remove SEED_ADMIN_PASSWORD from Vercel once seeded.
  */
 import "dotenv/config";
 import bcrypt from "bcryptjs";
@@ -14,14 +18,18 @@ import * as schema from "./schema";
 async function main() {
   const url = process.env.DATABASE_URL_UNPOOLED ?? process.env.DATABASE_URL;
   if (!url) throw new Error("DATABASE_URL is not set");
-  const client = postgres(url, { max: 1, prepare: false });
-  const db = drizzle(client, { schema, casing: "snake_case" });
-
   const password = process.env.SEED_ADMIN_PASSWORD;
+  if (process.argv.includes("--optional") && !password) {
+    console.log("SEED_ADMIN_PASSWORD not set — skipping seed.");
+    return;
+  }
   if (!password || password.length < 10) {
     throw new Error("Set SEED_ADMIN_PASSWORD (min. 10 characters) before seeding");
   }
   const passwordHash = await bcrypt.hash(password, 12);
+
+  const client = postgres(url, { max: 1, prepare: false });
+  const db = drizzle(client, { schema, casing: "snake_case" });
 
   const [admin, manager, sales] = await db
     .insert(schema.users)
