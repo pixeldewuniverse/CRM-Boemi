@@ -14,9 +14,16 @@ export default async function IntegrationsPage() {
   if (denied) return denied;
   await connection();
   const smtp = Boolean(process.env.SMTP_HOST);
+  const push = Boolean(process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY);
 
   const items: { name: string; purpose: string; status: string; tone: Tone }[] = [
     { name: "In-app notifications", purpose: "Bell + notification list for updates, approvals and deadlines.", status: "Active", tone: "ok" },
+    {
+      name: "Push notifications (phone & laptop)",
+      purpose: "Web Push to every device where a user turned it on — free, no app store. iPhone: add to Home Screen first.",
+      status: push ? "Active" : "Not configured — VAPID keys missing",
+      tone: push ? "ok" : "warn",
+    },
     {
       name: "Email (SMTP)",
       purpose: "Approval requests, deadline reminders and a daily digest.",

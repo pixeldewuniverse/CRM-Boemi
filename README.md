@@ -105,6 +105,20 @@ Saat ini: **in-app + email**. Setiap user bisa mengatur per jenis notifikasi (`n
 
 Google Chat & Google Calendar bisa ditambahkan sebagai channel setelah Google Workspace BOEMI dikonfirmasi — cukup ubah `src/lib/notifications/index.ts`.
 
+## Push notifications (HP & laptop)
+
+Web Push (VAPID): gratis, tanpa vendor. Setiap user menyalakannya sekali per perangkat di **Notifikasi → Turn on notifications**. iPhone: buka di Safari → Share → **Add to Home Screen**, buka dari ikon itu, lalu nyalakan (iOS 16.4+). Notifikasi yang sama juga tersimpan in-app dan (jika SMTP diset) dikirim via email.
+
+Env yang dibutuhkan: `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` (URL aplikasi atau `mailto:`). Buat **sekali** dan jangan diganti (mengganti kunci mematikan notifikasi di semua perangkat). Cara membuat tanpa terminal — paste di Console browser (F12):
+
+```js
+const k = await crypto.subtle.generateKey({ name: "ECDH", namedCurve: "P-256" }, true, ["deriveBits"]);
+const b64u = (b) => btoa(String.fromCharCode(...new Uint8Array(b))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+console.log("VAPID_PUBLIC_KEY=" + b64u(await crypto.subtle.exportKey("raw", k.publicKey)) + "\nVAPID_PRIVATE_KEY=" + (await crypto.subtle.exportKey("jwk", k.privateKey)).d);
+```
+
+Saat pindah ke Google Cloud, pakai **kunci yang sama** (simpan di Secret Manager) supaya perangkat yang sudah terdaftar tetap menerima notifikasi.
+
 ## Cron
 
 | Job | Jadwal (UTC) | Fungsi |

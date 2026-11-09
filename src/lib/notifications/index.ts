@@ -2,9 +2,10 @@ import "server-only";
 import { and, eq, inArray } from "drizzle-orm";
 import { getDb, schema } from "@/db";
 import { sendEmail } from "@/lib/email";
+import { sendPush } from "@/lib/push";
 
 /**
- * Notification types. Channels for now: in-app + email.
+ * Notification types. Channels: in-app, email and push (phone/laptop).
  * (Google Chat / Calendar can be added as extra channels once BOEMI's
  * Google Workspace is confirmed — only `deliver()` needs to change.)
  */
@@ -52,10 +53,12 @@ export async function notify(input: NotifyInput): Promise<void> {
   const prefByUser = new Map(prefs.map((p) => [p.userId, p]));
   const emailDefault = NOTIFICATION_TYPES[input.type].emailDefault;
 
+  const pushTo: string[] = [];
   for (const user of recipients) {
     const pref = prefByUser.get(user.id);
     const wantsInApp = pref?.inApp ?? true;
     const wantsEmail = pref?.email ?? emailDefault;
+    if (pref?.push ?? true) pushTo.push(user.id);
 
     let notificationId: string | null = null;
     if (wantsInApp) {
@@ -93,5 +96,11 @@ export async function notify(input: NotifyInput): Promise<void> {
         console.error("notification email failed", err);
       }
     }
+  }
+
+  try {
+    await sendPush(pushTo, { title: input.title, body: input.body, url: input.link ?? "/notifications" });
+  } catch (err) {
+    console.error("notification push failed", err);
   }
 }

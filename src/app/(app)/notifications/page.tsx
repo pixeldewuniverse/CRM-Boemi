@@ -5,11 +5,16 @@ import { getDb, schema } from "@/db";
 import { getCurrentUser } from "@/lib/auth";
 import { markAllRead } from "@/app/actions/notifications";
 import { PageTitle } from "@/components/page/page-title";
+import { PushToggle } from "@/components/push/push-toggle";
+import { pushPublicKey } from "@/lib/push";
+import { connection } from "next/server";
 
 export const metadata: Metadata = { title: "Notifications" };
 
 export default async function NotificationsPage() {
   const user = await getCurrentUser();
+  await connection(); // push key is read at runtime (Cloud Run sets env at start, not build)
+  const publicKey = pushPublicKey();
   const items = await getDb()
     .select()
     .from(schema.notifications)
@@ -30,6 +35,7 @@ export default async function NotificationsPage() {
           </form>
         }
       />
+      <PushToggle publicKey={publicKey} />
       <ul className="panel max-w-3xl divide-y divide-line">
         {items.length === 0 && <li className="px-4 py-10 text-center text-muted">No notifications yet.</li>}
         {items.map((n) => (

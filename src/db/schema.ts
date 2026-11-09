@@ -629,8 +629,27 @@ export const notificationPreferences = pgTable(
     type: text("type").notNull(),
     inApp: boolean("in_app").notNull().default(true),
     email: boolean("email").notNull().default(true),
+    push: boolean("push").notNull().default(true),
   },
   (t) => [uniqueIndex("notification_prefs_uq").on(t.userId, t.type)],
+);
+
+/** One row per browser/device that allowed push notifications (Web Push, VAPID). */
+export const pushSubscriptions = pgTable(
+  "push_subscriptions",
+  {
+    id: id(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    endpoint: text("endpoint").notNull(),
+    p256dh: text("p256dh").notNull(),
+    auth: text("auth").notNull(),
+    device: text("device"),
+    lastSuccessAt: timestamp("last_success_at", { withTimezone: true }),
+    createdAt: createdAt(),
+  },
+  (t) => [uniqueIndex("push_subscriptions_endpoint_uq").on(t.endpoint), index("push_subscriptions_user_idx").on(t.userId)],
 );
 
 /* ───────────────────────── Audit trail ───────────────────────── */

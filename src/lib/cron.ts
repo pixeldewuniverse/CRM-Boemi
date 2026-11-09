@@ -2,6 +2,7 @@ import "server-only";
 import { timingSafeEqual } from "node:crypto";
 import { and, eq, inArray, isNull, lt, lte, or } from "drizzle-orm";
 import { getDb, schema } from "@/db";
+import { fdatetime } from "@/lib/format";
 import { notify } from "@/lib/notifications";
 
 /**
@@ -53,7 +54,7 @@ async function taskReminders() {
       type: overdue ? "task.overdue" : "task.due_soon",
       title: overdue ? `Overdue: ${task.title}` : `Due soon: ${task.title}`,
       body: task.dueAt
-        ? `Due ${task.dueAt.toLocaleString("id-ID", { timeZone: "Asia/Jakarta" })}`
+        ? `Due ${fdatetime(task.dueAt)}`
         : undefined,
       link: "/sales/tasks",
     });
