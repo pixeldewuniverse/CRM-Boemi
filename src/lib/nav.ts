@@ -1,7 +1,7 @@
 /**
  * Navigation — mirrors the Phase 1 demo (demo.pixeldew.xyz):
- * 10 menus, each with submenus. Every submenu has a route at
- * /<menu>/<page>; pages not built yet render the module placeholder.
+ * 10 menus, each with submenus. Every submenu has its own page at
+ * src/app/(app)/<menu>/<page>/page.tsx.
  */
 import type { Role } from "./roles";
 
@@ -24,8 +24,6 @@ export type NavItem = {
   description: string;
   /** Only these roles may open the page (admin always can). Omit = everyone. */
   roles?: Role[];
-  /** True when the page is fully built (otherwise the placeholder renders). */
-  ready?: boolean;
 };
 
 export type NavCategory = {
@@ -45,7 +43,7 @@ export const NAV: NavCategory[] = [
     label: "Dashboard",
     icon: "dash",
     items: [
-      { key: "dashboard", href: "/dashboard", label: "Overview", description: "Target vs actual, today's work and what needs attention.", ready: true },
+      { key: "dashboard", href: "/dashboard", label: "Overview", description: "Target vs actual, today's work and what needs attention." },
       { key: "dash-team", href: "/dashboard/team", label: "Team & Sales KPI", description: "Each rep's performance: monthly target, orders, pipeline and activity discipline." },
     ],
   },
@@ -99,7 +97,7 @@ export const NAV: NavCategory[] = [
     label: "Database",
     icon: "acc",
     items: [
-      { key: "db-accounts", href: "/database/accounts", label: "Accounts", description: "Master data for B2B customers: hotels, spas, retailers and corporates, with qualification score.", ready: true },
+      { key: "db-accounts", href: "/database/accounts", label: "Accounts", description: "Master data for B2B customers: hotels, spas, retailers and corporates, with qualification score." },
       { key: "db-contacts", href: "/database/contacts", label: "Contacts", description: "Every contact at every account: purchasing, spa managers, owners, buyers." },
       { key: "db-products", href: "/database/products", label: "Products & Price List", description: "SKU catalogue and price per tier. Tiers apply automatically to quotations and orders by account segment." },
       { key: "db-employees", href: "/database/employees", label: "Employees", description: "Employee master data for sales assignment, approvals and access rights." },
@@ -170,10 +168,3 @@ export function canOpen(item: NavItem, role: Role): boolean {
   return !item.roles || role === "admin" || item.roles.includes(role);
 }
 
-/** Static params for /<section>/<page> routes, e.g. pagesUnder("database"). */
-export function pagesUnder(section: string): { page: string }[] {
-  return NAV.flatMap((c) => c.items)
-    .map((i) => i.href.split("/").filter(Boolean))
-    .filter((parts) => parts.length === 2 && parts[0] === section)
-    .map(([, page]) => ({ page }));
-}

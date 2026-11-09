@@ -1,11 +1,10 @@
 import "server-only";
-import { eq, type SQL } from "drizzle-orm";
+import type { SQL } from "drizzle-orm";
 import { schema } from "@/db";
-import { SEES_ALL_CUSTOMERS, type CurrentUser } from "./auth";
+import type { CurrentUser } from "./auth";
+import { ownedBy } from "./scope";
 
 /** Row-level scope: sales only see customers they own. */
 export function customerScope(user: CurrentUser): SQL | undefined {
-  return SEES_ALL_CUSTOMERS.includes(user.role)
-    ? undefined
-    : eq(schema.customers.ownerId, user.id);
+  return ownedBy(user, schema.customers.ownerId);
 }

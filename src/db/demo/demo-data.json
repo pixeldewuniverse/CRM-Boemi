@@ -1,0 +1,2103 @@
+{
+ "users": [
+  {
+   "id": "u1",
+   "n": "Ayu Pratiwi",
+   "role": "manager",
+   "area": "All regions"
+  },
+  {
+   "id": "u2",
+   "n": "Komang Sari",
+   "role": "sales",
+   "area": "Bali"
+  },
+  {
+   "id": "u3",
+   "n": "Dewi Lestari",
+   "role": "sales",
+   "area": "Jabodetabek"
+  },
+  {
+   "id": "u4",
+   "n": "Putu Ratna",
+   "role": "sales",
+   "area": "Lombok & NTB"
+  },
+  {
+   "id": "u5",
+   "n": "Ni Luh Wulan",
+   "role": "marketing",
+   "area": "Brand & Event"
+  },
+  {
+   "id": "u6",
+   "n": "Rina Kartika",
+   "role": "finance",
+   "area": "Finance"
+  },
+  {
+   "id": "u7",
+   "n": "System Admin",
+   "role": "admin",
+   "area": "IT"
+  },
+  {
+   "id": "u8",
+   "n": "Sri Wahyuni",
+   "role": "designer",
+   "area": "Content design"
+  }
+ ],
+ "products": [
+  {
+   "sku": "BW-SEN-250",
+   "n": "Body Wash Senja",
+   "size": "250 ml",
+   "cat": "Body care",
+   "price": 128000,
+   "stock": 310,
+   "active": true
+  },
+  {
+   "sku": "SH-KES-250",
+   "n": "Shampoo Kesturi",
+   "size": "250 ml",
+   "cat": "Hair care",
+   "price": 138600,
+   "stock": 439,
+   "active": true
+  },
+  {
+   "sku": "CO-KES-250",
+   "n": "Conditioner Kesturi",
+   "size": "250 ml",
+   "cat": "Hair care",
+   "price": 142000,
+   "stock": 331,
+   "active": true
+  },
+  {
+   "sku": "BL-TAN-200",
+   "n": "Body Lotion Tanabasa",
+   "size": "200 ml",
+   "cat": "Body care",
+   "price": 156000,
+   "stock": 338,
+   "active": true
+  },
+  {
+   "sku": "BB-REM-150",
+   "n": "Body Butter Rempah",
+   "size": "150 g",
+   "cat": "Body care",
+   "price": 185000,
+   "stock": 367,
+   "active": true
+  },
+  {
+   "sku": "BS-ART-200",
+   "n": "Body Scrub Aromatherapy",
+   "size": "200 g",
+   "cat": "Body care",
+   "price": 165000,
+   "stock": 347,
+   "active": true
+  },
+  {
+   "sku": "CO-VCO-100",
+   "n": "Coconut Carrier Oil",
+   "size": "100 ml",
+   "cat": "Massage & oil",
+   "price": 98000,
+   "stock": 287,
+   "active": true
+  },
+  {
+   "sku": "SS-MIN-050",
+   "n": "Mineral Sunscreen SPF 30",
+   "size": "50 ml",
+   "cat": "Sun care",
+   "price": 189000,
+   "stock": 490,
+   "active": true
+  },
+  {
+   "sku": "CA-SEN-180",
+   "n": "Senja Aromatherapy Candle",
+   "size": "180 g",
+   "cat": "Home",
+   "price": 210000,
+   "stock": 399,
+   "active": true
+  },
+  {
+   "sku": "RS-TAN-100",
+   "n": "Room Spray Tanabasa",
+   "size": "100 ml",
+   "cat": "Home",
+   "price": 115000,
+   "stock": 409,
+   "active": true
+  },
+  {
+   "sku": "AK-HTL-030",
+   "n": "Amenity Kit Hotel (5 pcs)",
+   "size": "5 × 30 ml",
+   "cat": "Amenity",
+   "price": 75000,
+   "stock": 250,
+   "active": true
+  },
+  {
+   "sku": "RF-BW-5000",
+   "n": "Refill Body Wash Senja",
+   "size": "5 L",
+   "cat": "Amenity",
+   "price": 1250000,
+   "stock": 344,
+   "active": true
+  },
+  {
+   "sku": "HS-SPR-060",
+   "n": "Hand Sanitizer Spray",
+   "size": "60 ml",
+   "cat": "Body care",
+   "price": 45000,
+   "stock": 269,
+   "active": true
+  },
+  {
+   "sku": "GB-SIG-001",
+   "n": "Signature Gift Box (4 items)",
+   "size": "box",
+   "cat": "Gifting",
+   "price": 520000,
+   "stock": 337,
+   "active": true
+  }
+ ],
+ "accounts": [
+  {
+   "id": "A01",
+   "n": "Alas Harum Resort Ubud",
+   "seg": "Hotel & Spa",
+   "city": "Gianyar, Bali",
+   "owner": "u2",
+   "since": "2025-03-12",
+   "contacts": [
+    [
+     "I Made Suarta",
+     "Purchasing Manager",
+     "+62 812-3801-2245",
+     "made.s@alasharum.example"
+    ],
+    [
+     "Kadek Ayu",
+     "Spa Manager",
+     "+62 813-3792-1180",
+     "spa@alasharum.example"
+    ]
+   ]
+  },
+  {
+   "id": "A02",
+   "n": "Tirta Spa Seminyak",
+   "seg": "Hotel & Spa",
+   "city": "Badung, Bali",
+   "owner": "u2",
+   "since": "2025-07-02",
+   "contacts": [
+    [
+     "Luh Putu Eka",
+     "Owner",
+     "+62 811-3990-221",
+     "eka@tirtaspa.example"
+    ]
+   ]
+  },
+  {
+   "id": "A03",
+   "n": "Villa Segara Canggu",
+   "seg": "Hotel & Spa",
+   "city": "Badung, Bali",
+   "owner": "u2",
+   "since": "2026-02-18",
+   "contacts": [
+    [
+     "Wayan Adi",
+     "GM",
+     "+62 812-4655-1093",
+     "gm@villasegara.example"
+    ]
+   ]
+  },
+  {
+   "id": "A04",
+   "n": "Lombok Cove Resort",
+   "seg": "Hotel & Spa",
+   "city": "Central Lombok, NTB",
+   "owner": "u4",
+   "since": "2025-11-05",
+   "contacts": [
+    [
+     "Baiq Nurul",
+     "Executive Housekeeper",
+     "+62 819-0732-4410",
+     "hk@lombokcove.example"
+    ]
+   ]
+  },
+  {
+   "id": "A05",
+   "n": "Senggigi Sunset Spa",
+   "seg": "Hotel & Spa",
+   "city": "West Lombok, NTB",
+   "owner": "u4",
+   "since": "2026-06-21",
+   "contacts": [
+    [
+     "Lalu Hamdi",
+     "Owner",
+     "+62 878-6510-3321",
+     "hamdi@sunsetspa.example"
+    ]
+   ]
+  },
+  {
+   "id": "A06",
+   "n": "Rumah Lilin Concept Store",
+   "seg": "Retail Partner",
+   "city": "Denpasar, Bali",
+   "owner": "u2",
+   "since": "2024-12-01",
+   "contacts": [
+    [
+     "Sinta Maharani",
+     "Store Manager",
+     "+62 812-3911-5050",
+     "sinta@rumahlilin.example"
+    ]
+   ]
+  },
+  {
+   "id": "A07",
+   "n": "Gading Beauty Lounge",
+   "seg": "Retail Partner",
+   "city": "Tangerang, Banten",
+   "owner": "u3",
+   "since": "2025-05-14",
+   "contacts": [
+    [
+     "Melisa Tan",
+     "Owner",
+     "+62 816-1990-284",
+     "melisa@gadingbeauty.example"
+    ]
+   ]
+  },
+  {
+   "id": "A08",
+   "n": "Bintaro Living Store",
+   "seg": "Retail Partner",
+   "city": "South Tangerang",
+   "owner": "u3",
+   "since": "2026-08-09",
+   "contacts": [
+    [
+     "Fajar Nugroho",
+     "Buyer",
+     "+62 857-1022-7781",
+     "buyer@bintaroliving.example"
+    ]
+   ]
+  },
+  {
+   "id": "A09",
+   "n": "PT Arunika Teknologi",
+   "seg": "Corporate Gift",
+   "city": "South Jakarta",
+   "owner": "u3",
+   "since": "2025-12-03",
+   "contacts": [
+    [
+     "Nadia Rahman",
+     "HR & GA Lead",
+     "+62 821-1100-3349",
+     "nadia@arunika.example"
+    ]
+   ]
+  },
+  {
+   "id": "A10",
+   "n": "PT Nusa Karya Hampers",
+   "seg": "Corporate Gift",
+   "city": "West Jakarta",
+   "owner": "u3",
+   "since": "2026-04-17",
+   "contacts": [
+    [
+     "Steven Wijaya",
+     "Procurement",
+     "+62 812-9088-1200",
+     "steven@nusakarya.example"
+    ]
+   ]
+  },
+  {
+   "id": "A11",
+   "n": "Uluwatu Cliff Retreat",
+   "seg": "Hotel & Spa",
+   "city": "Badung, Bali",
+   "owner": "u2",
+   "since": "2026-09-28",
+   "contacts": [
+    [
+     "Gede Pramana",
+     "Purchasing",
+     "+62 813-5345-9921",
+     "purchasing@uluwatucliff.example"
+    ]
+   ]
+  },
+  {
+   "id": "A12",
+   "n": "Sanur Weekend Market (Pop-up)",
+   "seg": "Online & Event",
+   "city": "Denpasar, Bali",
+   "owner": "u5",
+   "since": "2026-03-01",
+   "contacts": [
+    [
+     "Tim Event",
+     "Organizer",
+     "+62 812-3700-1188",
+     "event@sanurmarket.example"
+    ]
+   ]
+  }
+ ],
+ "leads": [
+  {
+   "id": "L01",
+   "co": "Kayu Manis Boutique Hotel",
+   "pic": "Agus Wirawan",
+   "ph": "+62 812-3655-7710",
+   "seg": "Hotel & Spa",
+   "city": "Ubud, Bali",
+   "src": "Website",
+   "owner": "u2",
+   "st": "New",
+   "dt": "2026-10-31",
+   "note": "Requested amenity catalogue & 5 L refill pricing"
+  },
+  {
+   "id": "L02",
+   "co": "Jimbaran Bay Spa",
+   "pic": "Ni Kadek Dian",
+   "ph": "+62 813-3822-0198",
+   "seg": "Hotel & Spa",
+   "city": "Badung, Bali",
+   "src": "Instagram",
+   "owner": "u2",
+   "st": "Contacted",
+   "dt": "2026-10-27",
+   "note": "Interested in massage oil for 6 treatment rooms"
+  },
+  {
+   "id": "L03",
+   "co": "PT Sinar Logistik",
+   "pic": "Rudi Hartono",
+   "ph": "+62 811-9001-332",
+   "seg": "Corporate Gift",
+   "city": "North Jakarta",
+   "src": "Referral",
+   "owner": "u3",
+   "st": "New",
+   "dt": "2026-10-30",
+   "note": "Year-end hampers, approx. 250 boxes"
+  },
+  {
+   "id": "L04",
+   "co": "Mandalika Surf Lodge",
+   "pic": "Zainul Arifin",
+   "ph": "+62 877-6301-4459",
+   "seg": "Hotel & Spa",
+   "city": "Central Lombok",
+   "src": "Event / Exhibition",
+   "owner": "u4",
+   "st": "Contacted",
+   "dt": "2026-10-22",
+   "note": "Met at the Mataram hospitality expo"
+  },
+  {
+   "id": "L05",
+   "co": "Serpong Green Pharmacy",
+   "pic": "Linda Kusuma",
+   "ph": "+62 815-1188-9020",
+   "seg": "Retail Partner",
+   "city": "South Tangerang",
+   "src": "WhatsApp",
+   "owner": "u3",
+   "st": "New",
+   "dt": "2026-11-01",
+   "note": "Wants to stock the mineral sunscreen"
+  },
+  {
+   "id": "L06",
+   "co": "Canggu Yoga Shala",
+   "pic": "Sarah Whitfield",
+   "ph": "+62 812-4710-6634",
+   "seg": "Retail Partner",
+   "city": "Badung, Bali",
+   "src": "Walk-in Store",
+   "owner": "u2",
+   "st": "Contacted",
+   "dt": "2026-10-19",
+   "note": "Small retail corner in the lobby"
+  },
+  {
+   "id": "L07",
+   "co": "Bank Rakyat Kreatif (CSR)",
+   "pic": "Meiliana",
+   "ph": "+62 821-2300-1176",
+   "seg": "Corporate Gift",
+   "city": "Central Jakarta",
+   "src": "Website",
+   "owner": "u3",
+   "st": "Disqualified",
+   "dt": "2026-10-10",
+   "note": "Budget per box below minimum"
+  },
+  {
+   "id": "L08",
+   "co": "Gili Air Eco Villas",
+   "pic": "Hendra Saputra",
+   "ph": "+62 819-1730-0021",
+   "seg": "Hotel & Spa",
+   "city": "North Lombok",
+   "src": "Referral",
+   "owner": "u4",
+   "st": "New",
+   "dt": "2026-10-29",
+   "note": "Needs plastic-free amenities"
+  }
+ ],
+ "deals": [
+  {
+   "id": "D01",
+   "acc": "A01",
+   "t": "Amenities Q1 2027 – 120 rooms",
+   "st": "Negotiation",
+   "owner": "u2",
+   "close": "2026-11-20",
+   "items": [
+    [
+     "AK-HTL-030",
+     1200
+    ],
+    [
+     "RF-BW-5000",
+     24
+    ]
+   ]
+  },
+  {
+   "id": "D02",
+   "acc": "A02",
+   "t": "Monthly massage oil & scrub",
+   "st": "Quotation",
+   "owner": "u2",
+   "close": "2026-11-15",
+   "items": [
+    [
+     "CO-VCO-100",
+     120
+    ],
+    [
+     "BS-ART-200",
+     60
+    ]
+   ]
+  },
+  {
+   "id": "D03",
+   "acc": "A03",
+   "t": "Welcome kit villa",
+   "st": "Sampling",
+   "owner": "u2",
+   "close": "2026-12-05",
+   "items": [
+    [
+     "AK-HTL-030",
+     300
+    ],
+    [
+     "CA-SEN-180",
+     40
+    ]
+   ]
+  },
+  {
+   "id": "D04",
+   "acc": "A04",
+   "t": "Rempah spa menu – launch",
+   "st": "Negotiation",
+   "owner": "u4",
+   "close": "2026-11-12",
+   "items": [
+    [
+     "BB-REM-150",
+     80
+    ],
+    [
+     "BS-ART-200",
+     80
+    ],
+    [
+     "CO-VCO-100",
+     100
+    ]
+   ]
+  },
+  {
+   "id": "D05",
+   "acc": "A05",
+   "t": "Spa product trial",
+   "st": "Sampling",
+   "owner": "u4",
+   "close": "2026-12-01",
+   "items": [
+    [
+     "CO-VCO-100",
+     40
+    ],
+    [
+     "BL-TAN-200",
+     30
+    ]
+   ]
+  },
+  {
+   "id": "D06",
+   "acc": "A06",
+   "t": "December display restock",
+   "st": "Contacted",
+   "owner": "u2",
+   "close": "2026-11-25",
+   "items": [
+    [
+     "CA-SEN-180",
+     30
+    ],
+    [
+     "RS-TAN-100",
+     36
+    ],
+    [
+     "BW-SEN-250",
+     48
+    ]
+   ]
+  },
+  {
+   "id": "D07",
+   "acc": "A07",
+   "t": "Listing sunscreen & lotion",
+   "st": "Quotation",
+   "owner": "u3",
+   "close": "2026-11-18",
+   "items": [
+    [
+     "SS-MIN-050",
+     60
+    ],
+    [
+     "BL-TAN-200",
+     48
+    ]
+   ]
+  },
+  {
+   "id": "D08",
+   "acc": "A08",
+   "t": "Opening order Bintaro",
+   "st": "New",
+   "owner": "u3",
+   "close": "2026-12-10",
+   "items": [
+    [
+     "BW-SEN-250",
+     36
+    ],
+    [
+     "SH-KES-250",
+     36
+    ],
+    [
+     "CO-KES-250",
+     24
+    ]
+   ]
+  },
+  {
+   "id": "D09",
+   "acc": "A09",
+   "t": "Year-end hampers 2026",
+   "st": "Negotiation",
+   "owner": "u3",
+   "close": "2026-11-08",
+   "items": [
+    [
+     "GB-SIG-001",
+     180
+    ]
+   ]
+  },
+  {
+   "id": "D10",
+   "acc": "A10",
+   "t": "Lunar New Year 2027 hamper fill",
+   "st": "Contacted",
+   "owner": "u3",
+   "close": "2026-12-20",
+   "items": [
+    [
+     "CA-SEN-180",
+     200
+    ],
+    [
+     "HS-SPR-060",
+     400
+    ]
+   ]
+  },
+  {
+   "id": "D11",
+   "acc": "A11",
+   "t": "New resort amenities",
+   "st": "New",
+   "owner": "u2",
+   "close": "2027-01-15",
+   "items": [
+    [
+     "AK-HTL-030",
+     800
+    ],
+    [
+     "RF-BW-5000",
+     12
+    ]
+   ]
+  },
+  {
+   "id": "D12",
+   "acc": "A01",
+   "t": "Retail shelf in spa",
+   "st": "Won",
+   "owner": "u2",
+   "close": "2026-10-21",
+   "items": [
+    [
+     "BL-TAN-200",
+     24
+    ],
+    [
+     "BB-REM-150",
+     24
+    ]
+   ]
+  },
+  {
+   "id": "D13",
+   "acc": "A07",
+   "t": "Mother’s Day bundle",
+   "st": "Lost",
+   "owner": "u3",
+   "close": "2026-10-15",
+   "items": [
+    [
+     "GB-SIG-001",
+     40
+    ]
+   ],
+   "lost": "Price too high"
+  },
+  {
+   "id": "D14",
+   "acc": "A04",
+   "t": "Room spray lobby",
+   "st": "Quotation",
+   "owner": "u4",
+   "close": "2026-11-22",
+   "items": [
+    [
+     "RS-TAN-100",
+     60
+    ]
+   ]
+  }
+ ],
+ "quotes": [
+  {
+   "id": "Q-2610-007",
+   "acc": "A02",
+   "deal": "D02",
+   "dt": "2026-10-24",
+   "valid": "2026-11-23",
+   "st": "Sent",
+   "owner": "u2",
+   "disc": 5,
+   "ppn": true,
+   "items": [
+    [
+     "CO-VCO-100",
+     120
+    ],
+    [
+     "BS-ART-200",
+     60
+    ]
+   ]
+  },
+  {
+   "id": "Q-2610-008",
+   "acc": "A07",
+   "deal": "D07",
+   "dt": "2026-10-26",
+   "valid": "2026-11-25",
+   "st": "Sent",
+   "owner": "u3",
+   "disc": 0,
+   "ppn": true,
+   "items": [
+    [
+     "SS-MIN-050",
+     60
+    ],
+    [
+     "BL-TAN-200",
+     48
+    ]
+   ]
+  },
+  {
+   "id": "Q-2610-009",
+   "acc": "A09",
+   "deal": "D09",
+   "dt": "2026-10-28",
+   "valid": "2026-11-12",
+   "st": "Draft",
+   "owner": "u3",
+   "disc": 7.5,
+   "ppn": true,
+   "items": [
+    [
+     "GB-SIG-001",
+     180
+    ]
+   ]
+  },
+  {
+   "id": "Q-2610-005",
+   "acc": "A04",
+   "deal": "D14",
+   "dt": "2026-10-18",
+   "valid": "2026-11-17",
+   "st": "Sent",
+   "owner": "u4",
+   "disc": 0,
+   "ppn": true,
+   "items": [
+    [
+     "RS-TAN-100",
+     60
+    ]
+   ]
+  },
+  {
+   "id": "Q-2609-011",
+   "acc": "A01",
+   "deal": "D12",
+   "dt": "2026-09-30",
+   "valid": "2026-10-30",
+   "st": "Accepted",
+   "owner": "u2",
+   "disc": 0,
+   "ppn": true,
+   "items": [
+    [
+     "BL-TAN-200",
+     24
+    ],
+    [
+     "BB-REM-150",
+     24
+    ]
+   ]
+  },
+  {
+   "id": "Q-2609-004",
+   "acc": "A07",
+   "deal": "D13",
+   "dt": "2026-09-12",
+   "valid": "2026-10-12",
+   "st": "Rejected",
+   "owner": "u3",
+   "disc": 0,
+   "ppn": true,
+   "items": [
+    [
+     "GB-SIG-001",
+     40
+    ]
+   ]
+  }
+ ],
+ "orders": [
+  {
+   "id": "SO-2610-021",
+   "acc": "A01",
+   "dt": "2026-10-21",
+   "owner": "u2",
+   "st": "Processing",
+   "disc": 0,
+   "ppn": true,
+   "dpPct": 50,
+   "paid": "dp",
+   "items": [
+    [
+     "BL-TAN-200",
+     24
+    ],
+    [
+     "BB-REM-150",
+     24
+    ]
+   ],
+   "ref": "Deal D12"
+  },
+  {
+   "id": "SO-2610-019",
+   "acc": "A06",
+   "dt": "2026-10-17",
+   "owner": "u2",
+   "st": "Shipped",
+   "disc": 0,
+   "ppn": true,
+   "dpPct": 0,
+   "paid": "none",
+   "items": [
+    [
+     "CA-SEN-180",
+     24
+    ],
+    [
+     "RS-TAN-100",
+     24
+    ],
+    [
+     "BW-SEN-250",
+     36
+    ]
+   ],
+   "ref": "Repeat order"
+  },
+  {
+   "id": "SO-2610-016",
+   "acc": "A04",
+   "dt": "2026-10-11",
+   "owner": "u4",
+   "st": "Completed",
+   "disc": 3,
+   "ppn": true,
+   "dpPct": 50,
+   "paid": "full",
+   "items": [
+    [
+     "AK-HTL-030",
+     900
+    ],
+    [
+     "RF-BW-5000",
+     16
+    ]
+   ],
+   "ref": "Repeat order"
+  },
+  {
+   "id": "SO-2610-014",
+   "acc": "A09",
+   "dt": "2026-10-08",
+   "owner": "u3",
+   "st": "Completed",
+   "disc": 5,
+   "ppn": true,
+   "dpPct": 50,
+   "paid": "full",
+   "items": [
+    [
+     "GB-SIG-001",
+     90
+    ]
+   ],
+   "ref": "Q-2609-002"
+  },
+  {
+   "id": "SO-2610-012",
+   "acc": "A02",
+   "dt": "2026-10-05",
+   "owner": "u2",
+   "st": "Completed",
+   "disc": 0,
+   "ppn": true,
+   "dpPct": 0,
+   "paid": "full",
+   "items": [
+    [
+     "CO-VCO-100",
+     100
+    ],
+    [
+     "BS-ART-200",
+     40
+    ]
+   ],
+   "ref": "Repeat order"
+  },
+  {
+   "id": "SO-2610-010",
+   "acc": "A07",
+   "dt": "2026-10-03",
+   "owner": "u3",
+   "st": "Delivered",
+   "disc": 0,
+   "ppn": true,
+   "dpPct": 30,
+   "paid": "dp",
+   "items": [
+    [
+     "SS-MIN-050",
+     48
+    ],
+    [
+     "BL-TAN-200",
+     36
+    ]
+   ],
+   "ref": "Repeat order"
+  },
+  {
+   "id": "SO-2609-031",
+   "acc": "A10",
+   "dt": "2026-09-26",
+   "owner": "u3",
+   "st": "Completed",
+   "disc": 5,
+   "ppn": true,
+   "dpPct": 50,
+   "paid": "full",
+   "items": [
+    [
+     "CA-SEN-180",
+     150
+    ],
+    [
+     "HS-SPR-060",
+     300
+    ]
+   ],
+   "ref": "Q-2609-008"
+  },
+  {
+   "id": "SO-2609-027",
+   "acc": "A12",
+   "dt": "2026-09-20",
+   "owner": "u5",
+   "st": "Completed",
+   "disc": 0,
+   "ppn": false,
+   "dpPct": 0,
+   "paid": "full",
+   "items": [
+    [
+     "BW-SEN-250",
+     60
+    ],
+    [
+     "CA-SEN-180",
+     30
+    ],
+    [
+     "HS-SPR-060",
+     80
+    ]
+   ],
+   "ref": "Event consignment"
+  },
+  {
+   "id": "SO-2611-001",
+   "acc": "A05",
+   "dt": "2026-11-01",
+   "owner": "u4",
+   "st": "Confirmed",
+   "disc": 0,
+   "ppn": true,
+   "dpPct": 50,
+   "paid": "none",
+   "items": [
+    [
+     "CO-VCO-100",
+     60
+    ],
+    [
+     "BB-REM-150",
+     30
+    ]
+   ],
+   "ref": "Repeat order"
+  }
+ ],
+ "acts": [
+  {
+   "id": "T01",
+   "st": "todo",
+   "type": "Follow-up",
+   "acc": "A09",
+   "owner": "u3",
+   "due": "2026-11-01",
+   "done": false,
+   "note": "Confirm final hamper quantity & greeting card design"
+  },
+  {
+   "id": "T02",
+   "st": "doing",
+   "type": "Call",
+   "acc": "A01",
+   "owner": "u2",
+   "due": "2026-11-01",
+   "done": false,
+   "note": "Negotiate 30% deposit terms for Q1 amenities"
+  },
+  {
+   "id": "T03",
+   "st": "todo",
+   "type": "Send samples",
+   "acc": "A03",
+   "owner": "u2",
+   "due": "2026-10-30",
+   "done": false,
+   "note": "Send 10 sample welcome kits to the villa"
+  },
+  {
+   "id": "T04",
+   "st": "approval",
+   "type": "Email",
+   "acc": "A07",
+   "owner": "u3",
+   "due": "2026-10-29",
+   "done": false,
+   "note": "Resend quotation + display photos"
+  },
+  {
+   "id": "T05",
+   "st": "todo",
+   "type": "Visit",
+   "acc": "A04",
+   "owner": "u4",
+   "due": "2026-11-03",
+   "done": false,
+   "note": "Present the rempah spa menu to the spa team"
+  },
+  {
+   "id": "T06",
+   "st": "todo",
+   "type": "WhatsApp",
+   "acc": "A10",
+   "owner": "u3",
+   "due": "2026-11-04",
+   "done": false,
+   "note": "Ask for the Lunar New Year hamper brief"
+  },
+  {
+   "id": "T07",
+   "st": "doing",
+   "type": "Meeting",
+   "acc": "A11",
+   "owner": "u2",
+   "due": "2026-11-05",
+   "done": false,
+   "note": "Intro meeting with resort purchasing"
+  },
+  {
+   "id": "T08",
+   "st": "done",
+   "type": "Follow-up",
+   "acc": "A06",
+   "owner": "u2",
+   "due": "2026-10-28",
+   "done": true,
+   "note": "Check Senja candle sell-through"
+  },
+  {
+   "id": "T09",
+   "st": "approval",
+   "type": "Brief",
+   "acc": "A12",
+   "owner": "u5",
+   "due": "2026-11-04",
+   "done": false,
+   "note": "Campaign brief: Sanur Weekend Market booth"
+  },
+  {
+   "id": "T10",
+   "st": "doing",
+   "type": "Design",
+   "acc": "A09",
+   "owner": "u5",
+   "due": "2026-11-06",
+   "done": false,
+   "note": "Year-end hamper card artwork"
+  },
+  {
+   "id": "T11",
+   "st": "done",
+   "type": "Email",
+   "acc": "A02",
+   "owner": "u2",
+   "due": "2026-10-27",
+   "done": true,
+   "note": "Sent revised massage oil price list"
+  }
+ ],
+ "visits": [
+  {
+   "id": "V01",
+   "acc": "A01",
+   "owner": "u2",
+   "dt": "2026-10-30",
+   "gps": "-8.5069, 115.2625",
+   "check": "10:12",
+   "note": "Checked amenity stock, discussed Q1 needs",
+   "fee": 75000,
+   "fst": "Pending"
+  },
+  {
+   "id": "V02",
+   "acc": "A04",
+   "owner": "u4",
+   "dt": "2026-10-29",
+   "gps": "-8.8955, 116.2968",
+   "check": "14:40",
+   "note": "Rempah body butter demo for 4 therapists",
+   "fee": 150000,
+   "fst": "Pending"
+  },
+  {
+   "id": "V03",
+   "acc": "A08",
+   "owner": "u3",
+   "dt": "2026-10-28",
+   "gps": "-6.2712, 106.7246",
+   "check": "11:05",
+   "note": "Surveyed display area, measured shelves",
+   "fee": 75000,
+   "fst": "Approved"
+  },
+  {
+   "id": "V04",
+   "acc": "A06",
+   "owner": "u2",
+   "dt": "2026-10-27",
+   "gps": "-8.6705, 115.2126",
+   "check": "16:20",
+   "note": "Restock & display photos",
+   "fee": 50000,
+   "fst": "Approved"
+  },
+  {
+   "id": "V05",
+   "acc": "A05",
+   "owner": "u4",
+   "dt": "2026-10-24",
+   "gps": "-8.4931, 116.0420",
+   "check": "13:15",
+   "note": "Delivered trial samples",
+   "fee": 150000,
+   "fst": "Rejected",
+   "rej": "Photo evidence unclear"
+  }
+ ],
+ "targets": {
+  "u2": {
+   "t": 250000000,
+   "base": 38500000
+  },
+  "u3": {
+   "t": 300000000,
+   "base": 61200000
+  },
+  "u4": {
+   "t": 180000000,
+   "base": 22400000
+  }
+ },
+ "campaigns": [
+  {
+   "n": "Rempah Body Butter Launch",
+   "type": "Product launch",
+   "period": "Oct–Nov 2026",
+   "budget": 18000000,
+   "leads": 42,
+   "rev": 96000000,
+   "st": "Running"
+  },
+  {
+   "n": "B2B Outreach Hotel Bali Q4",
+   "type": "Outbound",
+   "period": "Oct–Dec 2026",
+   "budget": 6000000,
+   "leads": 27,
+   "rev": 154000000,
+   "st": "Running"
+  },
+  {
+   "n": "Year-end Hampers",
+   "type": "Corporate gifting",
+   "period": "Nov–Dec 2026",
+   "budget": 12000000,
+   "leads": 19,
+   "rev": 0,
+   "st": "Scheduled"
+  },
+  {
+   "n": "Wanita Bisa Movement 2026",
+   "type": "Brand / CSR",
+   "period": "Aug 2026",
+   "budget": 25000000,
+   "leads": 64,
+   "rev": 38000000,
+   "st": "Done"
+  }
+ ],
+ "events": [
+  {
+   "n": "Sanur Weekend Market",
+   "dt": "2026-11-08",
+   "loc": "Sanur, Bali",
+   "type": "Pop-up",
+   "budget": 8000000,
+   "cost": 0,
+   "visitors": 0,
+   "leads": 0,
+   "deals": 0,
+   "rev": 0,
+   "st": "Scheduled"
+  },
+  {
+   "n": "Hospitality Expo Mataram",
+   "dt": "2026-10-18",
+   "loc": "Mataram, NTB",
+   "type": "B2B exhibition",
+   "budget": 15000000,
+   "cost": 13800000,
+   "visitors": 420,
+   "leads": 14,
+   "deals": 3,
+   "rev": 42000000,
+   "st": "Done"
+  },
+  {
+   "n": "Pop-up Gading Serpong",
+   "dt": "2026-09-21",
+   "loc": "Tangerang",
+   "type": "Pop-up",
+   "budget": 10000000,
+   "cost": 9200000,
+   "visitors": 860,
+   "leads": 11,
+   "deals": 2,
+   "rev": 27500000,
+   "st": "Done"
+  },
+  {
+   "n": "Wanita Bisa Movement 2026",
+   "dt": "2026-08-14",
+   "loc": "Gading Serpong",
+   "type": "Brand / CSR",
+   "budget": 25000000,
+   "cost": 24100000,
+   "visitors": 300,
+   "leads": 64,
+   "deals": 4,
+   "rev": 38000000,
+   "st": "Done"
+  }
+ ],
+ "eventLeads": [
+  {
+   "ev": "Hospitality Expo Mataram",
+   "n": "Zainul Arifin",
+   "co": "Mandalika Surf Lodge",
+   "seg": "Hotel & Spa",
+   "ph": "+62 877-6301-4459",
+   "int": "Plastic-free amenities",
+   "st": "Converted"
+  },
+  {
+   "ev": "Hospitality Expo Mataram",
+   "n": "Ayu Lestari",
+   "co": "Kuta Lombok Homestay",
+   "seg": "Hotel & Spa",
+   "ph": "+62 819-3311-0902",
+   "int": "Refill body wash 5 L",
+   "st": "New"
+  },
+  {
+   "ev": "Hospitality Expo Mataram",
+   "n": "Hj. Rohani",
+   "co": "Rinjani Spa Sembalun",
+   "seg": "Hotel & Spa",
+   "ph": "+62 878-6001-2290",
+   "int": "Massage oil",
+   "st": "New"
+  },
+  {
+   "ev": "Pop-up Gading Serpong",
+   "n": "Vania Kurnia",
+   "co": "Serpong Bridal Studio",
+   "seg": "Corporate Gift",
+   "ph": "+62 812-8870-1123",
+   "int": "Gift boxes for weddings",
+   "st": "New"
+  },
+  {
+   "ev": "Pop-up Gading Serpong",
+   "n": "Hendy Gunawan",
+   "co": "Alam Sutera Coworking",
+   "seg": "Retail Partner",
+   "ph": "+62 813-1092-4467",
+   "int": "Small retail display",
+   "st": "New"
+  },
+  {
+   "ev": "Pop-up Gading Serpong",
+   "n": "Lisa Hartati",
+   "co": "-",
+   "seg": "Online & Event",
+   "ph": "+62 856-9110-2203",
+   "int": "Retail shopper",
+   "st": "Not relevant"
+  }
+ ],
+ "ecom": [
+  {
+   "id": "WEB-10482",
+   "ch": "Website",
+   "cust": "Amanda Rahardjo",
+   "city": "South Jakarta",
+   "dt": "2026-11-01",
+   "items": [
+    [
+     "BW-SEN-250",
+     2
+    ],
+    [
+     "BL-TAN-200",
+     1
+    ]
+   ],
+   "pay": "Paid",
+   "ship": "Not shipped"
+  },
+  {
+   "id": "TKP-88213",
+   "ch": "Tokopedia",
+   "cust": "Rizky P.",
+   "city": "Surabaya",
+   "dt": "2026-11-01",
+   "items": [
+    [
+     "SS-MIN-050",
+     1
+    ]
+   ],
+   "pay": "Paid",
+   "ship": "Not shipped"
+  },
+  {
+   "id": "SHP-55190",
+   "ch": "Shopee",
+   "cust": "Clara W.",
+   "city": "Bandung",
+   "dt": "2026-10-31",
+   "items": [
+    [
+     "BB-REM-150",
+     1
+    ],
+    [
+     "BS-ART-200",
+     1
+    ]
+   ],
+   "pay": "Paid",
+   "ship": "Shipped"
+  },
+  {
+   "id": "WEB-10479",
+   "ch": "Website",
+   "cust": "Jessica Lim",
+   "city": "Badung",
+   "dt": "2026-10-31",
+   "items": [
+    [
+     "GB-SIG-001",
+     1
+    ]
+   ],
+   "pay": "Paid",
+   "ship": "Shipped"
+  },
+  {
+   "id": "TTS-30017",
+   "ch": "TikTok Shop",
+   "cust": "Nabila S.",
+   "city": "Depok",
+   "dt": "2026-10-30",
+   "items": [
+    [
+     "HS-SPR-060",
+     3
+    ]
+   ],
+   "pay": "Paid",
+   "ship": "Delivered"
+  },
+  {
+   "id": "SHP-55102",
+   "ch": "Shopee",
+   "cust": "Dimas A.",
+   "city": "Yogyakarta",
+   "dt": "2026-10-30",
+   "items": [
+    [
+     "SH-KES-250",
+     1
+    ],
+    [
+     "CO-KES-250",
+     1
+    ]
+   ],
+   "pay": "Paid",
+   "ship": "Delivered"
+  },
+  {
+   "id": "WEB-10471",
+   "ch": "Website",
+   "cust": "Sophie M.",
+   "city": "Denpasar",
+   "dt": "2026-10-29",
+   "items": [
+    [
+     "CA-SEN-180",
+     2
+    ]
+   ],
+   "pay": "Awaiting payment",
+   "ship": "Not shipped"
+  },
+  {
+   "id": "TKP-88140",
+   "ch": "Tokopedia",
+   "cust": "Andre K.",
+   "city": "Medan",
+   "dt": "2026-10-28",
+   "items": [
+    [
+     "CO-VCO-100",
+     2
+    ]
+   ],
+   "pay": "Paid",
+   "ship": "Delivered"
+  }
+ ],
+ "channels": [
+  {
+   "n": "Website",
+   "plat": "Shopify",
+   "st": "Connected",
+   "o30": 182,
+   "gmv": 41600000,
+   "sku": 14,
+   "sync": "1 Nov, 22:50"
+  },
+  {
+   "n": "Tokopedia",
+   "plat": "Marketplace",
+   "st": "Connected",
+   "o30": 96,
+   "gmv": 17200000,
+   "sku": 11,
+   "sync": "1 Nov, 22:30"
+  },
+  {
+   "n": "Shopee",
+   "plat": "Marketplace",
+   "st": "Connected",
+   "o30": 131,
+   "gmv": 21900000,
+   "sku": 12,
+   "sync": "1 Nov, 22:30"
+  },
+  {
+   "n": "TikTok Shop",
+   "plat": "Social commerce",
+   "st": "Re-login needed",
+   "o30": 44,
+   "gmv": 6100000,
+   "sku": 8,
+   "sync": "29 Oct, 09:12"
+  }
+ ],
+ "promos": [
+  [
+   "SENJA15",
+   "15% off all Senja variants",
+   "Website",
+   "1–30 Nov 2026",
+   84,
+   "Active"
+  ],
+  [
+   "FREEONGKIRBALI",
+   "Free Bali shipping, min. Rp 250,000",
+   "Website",
+   "Oct–Dec 2026",
+   212,
+   "Active"
+  ],
+  [
+   "PAYDAYNOV",
+   "Cashback 10%",
+   "Shopee",
+   "25–27 Nov 2026",
+   0,
+   "Scheduled"
+  ],
+  [
+   "REMPAHLAUNCH",
+   "Body Butter + Scrub bundle",
+   "All channels",
+   "Oct 2026",
+   157,
+   "Done"
+  ]
+ ],
+ "content": [
+  {
+   "id": "C01",
+   "date": "2026-10-27",
+   "time": "10:00",
+   "ch": [
+    "LinkedIn"
+   ],
+   "format": "Post",
+   "title": "Resort amenity case study",
+   "writer": "u5",
+   "designer": "u8",
+   "st": "Published",
+   "ver": 1,
+   "brief": {
+    "obj": "B2B credibility with hotel buyers",
+    "msg": "How one resort cut plastic with refill amenities",
+    "cap": "How Alas Harum Resort moved 120 rooms to refillable amenities…",
+    "cta": "Book a sample kit",
+    "tags": "#hospitality #sustainability",
+    "prod": "Amenity Kit Hotel, Refill 5 L"
+   }
+  },
+  {
+   "id": "C02",
+   "date": "2026-10-30",
+   "time": "18:00",
+   "ch": [
+    "Instagram"
+   ],
+   "format": "Reels",
+   "title": "Spa therapist testimonial in Lombok",
+   "writer": "u5",
+   "designer": "u8",
+   "st": "Published",
+   "ver": 1,
+   "brief": {
+    "obj": "Trust from spa owners",
+    "msg": "Therapists prefer our oils for long treatments",
+    "cap": "“It stays smooth for the whole 90 minutes.” – Baiq, Lombok",
+    "cta": "Link in bio for the spa catalogue",
+    "tags": "#spaindonesia #massageoil",
+    "prod": "Coconut Carrier Oil"
+   }
+  },
+  {
+   "id": "C03",
+   "date": "2026-11-02",
+   "time": "19:00",
+   "ch": [
+    "Instagram",
+    "Facebook"
+   ],
+   "format": "Reels",
+   "title": "The Senja bath ritual in 3 steps",
+   "writer": "u5",
+   "designer": "u8",
+   "st": "Scheduled",
+   "ver": 1,
+   "brief": {
+    "obj": "Drive retail sales of the Senja range",
+    "msg": "A 10-minute evening ritual anyone can do",
+    "cap": "Step 1: warm water. Step 2: Senja body wash. Step 3: lotion while skin is damp. 🌙",
+    "cta": "Shop the Senja set – link in bio",
+    "tags": "#senjaritual #selfcare",
+    "prod": "Body Wash Senja, Body Lotion Tanabasa"
+   }
+  },
+  {
+   "id": "C04",
+   "date": "2026-11-03",
+   "time": "12:00",
+   "ch": [
+    "TikTok"
+   ],
+   "format": "Video",
+   "title": "Behind the making of Rempah Body Butter",
+   "writer": "u5",
+   "designer": "u8",
+   "st": "In review",
+   "ver": 1,
+   "brief": {
+    "obj": "Show craft and natural ingredients",
+    "msg": "Small-batch, made by hand in Bali",
+    "cap": "From spice to jar: how one batch of Rempah Body Butter is made",
+    "cta": "Follow for more behind the scenes",
+    "tags": "#madeinbali #bodybutter",
+    "prod": "Body Butter Rempah"
+   }
+  },
+  {
+   "id": "C05",
+   "date": "2026-11-05",
+   "time": "10:00",
+   "ch": [
+    "Instagram"
+   ],
+   "format": "Carousel",
+   "title": "Eco-friendly amenities for hotels",
+   "writer": "u5",
+   "designer": "u8",
+   "st": "In design",
+   "ver": 1,
+   "brief": {
+    "obj": "Generate hotel leads",
+    "msg": "Refills cut single-use plastic by up to 80%",
+    "cap": "5 ways your guests notice eco-friendly amenities ➜",
+    "cta": "DM “AMENITY” for the hotel price list",
+    "tags": "#ecohotel #hospitalitybali",
+    "prod": "Amenity Kit Hotel, Refill 5 L"
+   }
+  },
+  {
+   "id": "C06",
+   "date": "2026-11-07",
+   "time": "08:00",
+   "ch": [
+    "Email"
+   ],
+   "format": "Newsletter",
+   "title": "Year-end gift guide",
+   "writer": "u5",
+   "designer": "u8",
+   "st": "Ready for design",
+   "ver": 1,
+   "brief": {
+    "obj": "Push corporate & personal gifting",
+    "msg": "Thoughtful gifts under Rp 600k",
+    "cap": "Our year-end gift guide is here: 6 gifts for the people who take care of you",
+    "cta": "Shop the gift guide",
+    "tags": "—",
+    "prod": "Signature Gift Box, Senja candle, Hand Sanitizer Spray"
+   }
+  },
+  {
+   "id": "C07",
+   "date": "2026-11-08",
+   "time": "15:00",
+   "ch": [
+    "Instagram"
+   ],
+   "format": "Story",
+   "title": "Live from Sanur Weekend Market",
+   "writer": "u5",
+   "designer": "u8",
+   "st": "Draft brief",
+   "ver": 1,
+   "brief": {
+    "obj": "Footfall to the booth",
+    "msg": "Come say hi, free samples today",
+    "cap": "We’re at Sanur Weekend Market until 6 pm – come try the new scrub!",
+    "cta": "Sticker: location + “See you there”",
+    "tags": "#sanur #weekendmarket",
+    "prod": "Body Scrub Aromatherapy"
+   }
+  },
+  {
+   "id": "C08",
+   "date": "2026-11-12",
+   "time": "11:00",
+   "ch": [
+    "Instagram",
+    "Facebook"
+   ],
+   "format": "Feed",
+   "title": "Hamper pre-orders are open",
+   "writer": "u5",
+   "designer": "u8",
+   "st": "Revision",
+   "ver": 2,
+   "brief": {
+    "obj": "Corporate hamper pre-orders",
+    "msg": "Order before 30 Nov for December delivery",
+    "cap": "Year-end hampers, made to order. Pre-orders open today 🎁",
+    "cta": "WhatsApp us to order",
+    "tags": "#hampers #corporategift",
+    "prod": "Signature Gift Box"
+   }
+  },
+  {
+   "id": "C09",
+   "date": "2026-11-14",
+   "time": "19:00",
+   "ch": [
+    "Instagram"
+   ],
+   "format": "Reels",
+   "title": "Therapist tips: choosing a massage oil",
+   "writer": "u5",
+   "designer": "u8",
+   "st": "Approved",
+   "ver": 1,
+   "brief": {
+    "obj": "Education for spa staff",
+    "msg": "Match the oil to the treatment length",
+    "cap": "3 tips from our therapists on choosing a massage oil",
+    "cta": "Save this for your next treatment menu",
+    "tags": "#spatips",
+    "prod": "Coconut Carrier Oil"
+   }
+  },
+  {
+   "id": "C10",
+   "date": "2026-11-18",
+   "time": "17:00",
+   "ch": [
+    "TikTok"
+   ],
+   "format": "Video",
+   "title": "Rempah scrub ASMR",
+   "writer": "u5",
+   "designer": "u8",
+   "st": "Ready for design",
+   "ver": 1,
+   "brief": {
+    "obj": "Reach and saves",
+    "msg": "The sound of a good scrub",
+    "cap": "No talking, just the scrub 🎧",
+    "cta": "Follow for part 2",
+    "tags": "#asmr #bodyscrub",
+    "prod": "Body Scrub Aromatherapy"
+   }
+  },
+  {
+   "id": "C11",
+   "date": "2026-11-25",
+   "time": "12:00",
+   "ch": [
+    "Instagram"
+   ],
+   "format": "Carousel",
+   "title": "Payday self-care bundle",
+   "writer": "u5",
+   "designer": "u8",
+   "st": "Draft brief",
+   "ver": 1,
+   "brief": {
+    "obj": "Payday sales",
+    "msg": "Treat yourself this payday",
+    "cap": "Payday = self-care day. Bundle and save 15%",
+    "cta": "Shop the bundle",
+    "tags": "#payday #selfcare",
+    "prod": "Body Wash Senja, Body Butter Rempah"
+   }
+  }
+ ],
+ "employees": [
+  [
+   "Ayu Pratiwi",
+   "Sales Manager",
+   "Sales",
+   "All regions",
+   "2023-02-01",
+   "Active"
+  ],
+  [
+   "Komang Sari",
+   "Sales Executive",
+   "Sales",
+   "Bali",
+   "2023-06-12",
+   "Active"
+  ],
+  [
+   "Dewi Lestari",
+   "Sales Executive",
+   "Sales",
+   "Jabodetabek",
+   "2024-01-08",
+   "Active"
+  ],
+  [
+   "Putu Ratna",
+   "Sales Executive",
+   "Sales",
+   "Lombok & NTB",
+   "2025-03-17",
+   "Active"
+  ],
+  [
+   "Ni Luh Wulan",
+   "Marketing Lead",
+   "Marketing",
+   "Bali",
+   "2023-04-03",
+   "Active"
+  ],
+  [
+   "Sri Wahyuni",
+   "Graphic Designer",
+   "Marketing",
+   "Bali",
+   "2026-08-18",
+   "Probation"
+  ],
+  [
+   "Rina Kartika",
+   "Finance Staff",
+   "Finance",
+   "Bali",
+   "2024-07-22",
+   "Active"
+  ],
+  [
+   "Made Indah",
+   "Store Supervisor",
+   "Store",
+   "Main Store",
+   "2023-05-08",
+   "Active"
+  ],
+  [
+   "Kadek Mirah",
+   "Store Crew",
+   "Store",
+   "Main Store",
+   "2025-09-01",
+   "Active"
+  ]
+ ],
+ "dtgt": [
+  [
+   200,
+   190,
+   210,
+   220,
+   230,
+   240,
+   250,
+   260,
+   270,
+   280,
+   300,
+   340
+  ],
+  [
+   70,
+   65,
+   72,
+   75,
+   78,
+   80,
+   88,
+   95,
+   85,
+   80,
+   85,
+   110
+  ],
+  [
+   45,
+   42,
+   48,
+   50,
+   52,
+   55,
+   58,
+   62,
+   60,
+   65,
+   75,
+   95
+  ],
+  [
+   20,
+   18,
+   20,
+   25,
+   25,
+   25,
+   30,
+   40,
+   30,
+   30,
+   35,
+   45
+  ]
+ ],
+ "settlements": [
+  {
+   "id": "CS-2610-A06",
+   "acc": "A06",
+   "period": "October 2026",
+   "units": 49,
+   "val": 8900000,
+   "kom": 25,
+   "st": "Awaiting invoice"
+  },
+  {
+   "id": "CS-2610-A07",
+   "acc": "A07",
+   "period": "October 2026",
+   "units": 51,
+   "val": 10400000,
+   "kom": 30,
+   "st": "Invoice sent"
+  },
+  {
+   "id": "CS-2610-A12",
+   "acc": "A12",
+   "period": "October 2026",
+   "units": 71,
+   "val": 3200000,
+   "kom": 20,
+   "st": "Paid"
+  },
+  {
+   "id": "CS-2609-A06",
+   "acc": "A06",
+   "period": "September 2026",
+   "units": 38,
+   "val": 7100000,
+   "kom": 25,
+   "st": "Paid"
+  }
+ ],
+ "samples": [
+  {
+   "acc": "A03",
+   "sku": "AK-HTL-030",
+   "qty": 10,
+   "dt": "2026-10-20",
+   "fb": "Guests liked the scent; asked for an unscented variant",
+   "conv": "In progress"
+  },
+  {
+   "acc": "A05",
+   "sku": "CO-VCO-100",
+   "qty": 6,
+   "dt": "2026-10-24",
+   "fb": "Awaiting therapist review",
+   "conv": "In progress"
+  },
+  {
+   "acc": "A04",
+   "sku": "BB-REM-150",
+   "qty": 8,
+   "dt": "2026-09-30",
+   "fb": "Added to the spa menu",
+   "conv": "Yes"
+  },
+  {
+   "acc": "A08",
+   "sku": "BW-SEN-250",
+   "qty": 6,
+   "dt": "2026-09-15",
+   "fb": "Packaging needs a tester",
+   "conv": "No"
+  }
+ ],
+ "outlets": [
+  {
+   "acc": "A06",
+   "sku": "CA-SEN-180",
+   "titip": 40,
+   "sold": 31,
+   "next": "2026-11-06"
+  },
+  {
+   "acc": "A06",
+   "sku": "RS-TAN-100",
+   "titip": 36,
+   "sold": 18,
+   "next": "2026-11-06"
+  },
+  {
+   "acc": "A07",
+   "sku": "SS-MIN-050",
+   "titip": 48,
+   "sold": 39,
+   "next": "2026-11-03"
+  },
+  {
+   "acc": "A07",
+   "sku": "BL-TAN-200",
+   "titip": 36,
+   "sold": 12,
+   "next": "2026-11-10"
+  },
+  {
+   "acc": "A12",
+   "sku": "HS-SPR-060",
+   "titip": 80,
+   "sold": 71,
+   "next": "2026-11-08"
+  }
+ ],
+ "audit": [
+  {
+   "t": "2026-11-01 08:14",
+   "u": "u4",
+   "a": "Created order SO-2611-001"
+  },
+  {
+   "t": "2026-10-31 17:02",
+   "u": "u2",
+   "a": "Added lead Kayu Manis Boutique Hotel"
+  },
+  {
+   "t": "2026-10-31 09:40",
+   "u": "u6",
+   "a": "Approved visit fee V03"
+  }
+ ]
+}

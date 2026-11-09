@@ -15,6 +15,13 @@
       "when": 1793897535428,
       "tag": "0001_designer_role",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1794233207815,
+      "tag": "0002_modules",
+      "breakpoints": true
     }
   ]
 }

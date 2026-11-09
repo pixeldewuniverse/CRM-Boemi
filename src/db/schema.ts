@@ -54,14 +54,16 @@ export const approvalStatusEnum = pgEnum("approval_status", [
 export const taskStatusEnum = pgEnum("task_status", [
   "open",
   "in_progress",
+  "waiting_approval",
   "done",
   "cancelled",
 ]);
 
 export const opportunityStageEnum = pgEnum("opportunity_stage", [
   "new",
-  "qualified",
-  "proposal",
+  "contacted",
+  "sampling",
+  "quotation",
   "negotiation",
   "won",
   "lost",
@@ -70,8 +72,45 @@ export const opportunityStageEnum = pgEnum("opportunity_stage", [
 export const orderStatusEnum = pgEnum("order_status", [
   "draft",
   "confirmed",
+  "processing",
+  "shipped",
   "delivered",
+  "completed",
   "cancelled",
+]);
+
+export const paymentStatusEnum = pgEnum("payment_status", ["unpaid", "deposit", "paid"]);
+
+export const leadStatusEnum = pgEnum("lead_status", [
+  "new",
+  "contacted",
+  "qualified",
+  "disqualified",
+]);
+
+export const quoteStatusEnum = pgEnum("quote_status", [
+  "draft",
+  "sent",
+  "accepted",
+  "rejected",
+  "expired",
+]);
+
+export const campaignStatusEnum = pgEnum("campaign_status", ["scheduled", "running", "done"]);
+
+export const eventStatusEnum = pgEnum("event_status", ["scheduled", "running", "done", "cancelled"]);
+
+export const eventLeadStatusEnum = pgEnum("event_lead_status", ["new", "converted", "not_relevant"]);
+
+export const contentStatusEnum = pgEnum("content_status", [
+  "draft_brief",
+  "ready_for_design",
+  "in_design",
+  "in_review",
+  "revision",
+  "approved",
+  "scheduled",
+  "published",
 ]);
 
 export const criteriaOperatorEnum = pgEnum("criteria_operator", [
@@ -111,6 +150,9 @@ export const users = pgTable(
     }),
     phone: text("phone"),
     region: text("region"),
+    position: text("position"),
+    department: text("department"),
+    joinedOn: date("joined_on"),
     active: boolean("active").notNull().default(true),
     lastLoginAt: timestamp("last_login_at", { withTimezone: true }),
     createdAt: createdAt(),
@@ -129,6 +171,10 @@ export const campaigns = pgTable("campaigns", {
   endsOn: date("ends_on"),
   budget: rupiah("budget"),
   ownerId: uuid("owner_id").references(() => users.id),
+  type: text("type"), // product launch, outbound, corporate gifting, brand / CSR…
+  status: campaignStatusEnum("status").notNull().default("scheduled"),
+  resultLeads: integer("result_leads").notNull().default(0),
+  resultRevenue: rupiah("result_revenue").notNull().default(0),
   notes: text("notes"),
   createdAt: createdAt(),
   updatedAt: updatedAt(),
@@ -281,6 +327,7 @@ export const tasks = pgTable(
       .notNull()
       .references(() => users.id),
     createdBy: uuid("created_by").references(() => users.id),
+    type: text("type"), // follow-up, call, whatsapp, email, visit, meeting, send samples, brief, design
     status: taskStatusEnum("status").notNull().default("open"),
     dueAt: timestamp("due_at", { withTimezone: true }),
     completedAt: timestamp("completed_at", { withTimezone: true }),
@@ -303,8 +350,9 @@ export const products = pgTable(
     sku: text("sku").notNull(),
     name: text("name").notNull(),
     category: text("category"),
-    variant: text("variant"),
-    price: rupiah("price"),
+    variant: text("variant"), // pack size, e.g. 250 ml
+    price: rupiah("price"), // retail price; tier prices are derived
+    stock: integer("stock").notNull().default(0),
     active: boolean("active").notNull().default(true),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
@@ -351,7 +399,15 @@ export const orders = pgTable(
     orderedAt: timestamp("ordered_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
+    subtotal: rupiah("subtotal").notNull().default(0),
+    discountPct: doublePrecision("discount_pct").notNull().default(0),
+    ppn: boolean("ppn").notNull().default(true),
+    taxAmount: rupiah("tax_amount").notNull().default(0),
     total: rupiah("total").notNull().default(0),
+    depositPct: integer("deposit_pct").notNull().default(0),
+    paymentStatus: paymentStatusEnum("payment_status").notNull().default("unpaid"),
+    paidAmount: rupiah("paid_amount").notNull().default(0),
+    reference: text("reference"),
     channel: text("channel"),
     notes: text("notes"),
     createdAt: createdAt(),
@@ -377,6 +433,152 @@ export const orderItems = pgTable(
     subtotal: rupiah("subtotal").notNull().default(0),
   },
   (t) => [index("order_items_order_idx").on(t.orderId)],
+);
+
+/* ─────────────────────────── Leads ─────────────────────────── */
+
+/** New prospects before they become an Account + Deal. */
+export const leads = pgTable(
+  "leads",
+  {
+    id: id(),
+    company: text("company").notNull(),
+    picName: text("pic_name"),
+    phoneE164: text("phone_e164"),
+    email: text("email"),
+    segment: text("segment"),
+    city: text("city"),
+    source: text("source").notNull(), // required for attribution
+    campaignId: uuid("campaign_id").references(() => campaigns.id),
+    ownerId: uuid("owner_id").references(() => users.id),
+    status: leadStatusEnum("status").notNull().default("new"),
+    note: text("note"),
+    disqualifyReason: text("disqualify_reason"),
+    customerId: uuid("customer_id").references(() => customers.id, { onDelete: "set null" }),
+    qualificationScore: integer("qualification_score"),
+    qualificationTier: leadTierEnum("qualification_tier"),
+    qualificationReason: text("qualification_reason"),
+    receivedOn: date("received_on").notNull().defaultNow(),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [
+    index("leads_owner_status_idx").on(t.ownerId, t.status),
+    index("leads_source_idx").on(t.source),
+  ],
+);
+
+/* ───────────────────────── Quotations ───────────────────────── */
+
+export const quotations = pgTable(
+  "quotations",
+  {
+    id: id(),
+    quoteNo: text("quote_no").notNull(),
+    customerId: uuid("customer_id")
+      .notNull()
+      .references(() => customers.id),
+    opportunityId: uuid("opportunity_id").references(() => opportunities.id),
+    ownerId: uuid("owner_id").references(() => users.id),
+    status: quoteStatusEnum("status").notNull().default("draft"),
+    issuedOn: date("issued_on").notNull(),
+    validUntil: date("valid_until"),
+    priceTier: text("price_tier"),
+    subtotal: rupiah("subtotal").notNull().default(0),
+    discountPct: doublePrecision("discount_pct").notNull().default(0),
+    ppn: boolean("ppn").notNull().default(true),
+    taxAmount: rupiah("tax_amount").notNull().default(0),
+    total: rupiah("total").notNull().default(0),
+    notes: text("notes"),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [
+    uniqueIndex("quotations_quote_no_uq").on(t.quoteNo),
+    index("quotations_customer_idx").on(t.customerId),
+  ],
+);
+
+export const quotationItems = pgTable(
+  "quotation_items",
+  {
+    id: id(),
+    quotationId: uuid("quotation_id")
+      .notNull()
+      .references(() => quotations.id, { onDelete: "cascade" }),
+    productId: uuid("product_id").references(() => products.id),
+    quantity: integer("quantity").notNull().default(1),
+    unitPrice: rupiah("unit_price").notNull().default(0),
+    subtotal: rupiah("subtotal").notNull().default(0),
+  },
+  (t) => [index("quotation_items_quote_idx").on(t.quotationId)],
+);
+
+/* ─────────────────────────── Events ─────────────────────────── */
+
+export const events = pgTable("events", {
+  id: id(),
+  name: text("name").notNull(),
+  type: text("type"), // B2B exhibition, pop-up, brand / CSR
+  heldOn: date("held_on").notNull(),
+  location: text("location"),
+  status: eventStatusEnum("status").notNull().default("scheduled"),
+  budget: rupiah("budget").notNull().default(0),
+  actualCost: rupiah("actual_cost").notNull().default(0),
+  visitors: integer("visitors").notNull().default(0),
+  leadsCount: integer("leads_count").notNull().default(0),
+  dealsCount: integer("deals_count").notNull().default(0),
+  revenue: rupiah("revenue").notNull().default(0),
+  campaignId: uuid("campaign_id").references(() => campaigns.id),
+  ownerId: uuid("owner_id").references(() => users.id),
+  createdAt: createdAt(),
+  updatedAt: updatedAt(),
+});
+
+/** Contacts collected at a booth, before they become leads. */
+export const eventLeads = pgTable(
+  "event_leads",
+  {
+    id: id(),
+    eventId: uuid("event_id")
+      .notNull()
+      .references(() => events.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    company: text("company"),
+    segment: text("segment"),
+    phoneE164: text("phone_e164"),
+    interest: text("interest"),
+    status: eventLeadStatusEnum("status").notNull().default("new"),
+    leadId: uuid("lead_id").references(() => leads.id, { onDelete: "set null" }),
+    createdAt: createdAt(),
+  },
+  (t) => [index("event_leads_event_idx").on(t.eventId)],
+);
+
+/* ────────────────────── Content calendar ────────────────────── */
+
+export const contentItems = pgTable(
+  "content_items",
+  {
+    id: id(),
+    title: text("title").notNull(),
+    publishAt: timestamp("publish_at", { withTimezone: true }).notNull(),
+    channels: text("channels").array().notNull().default(sql`'{}'::text[]`),
+    format: text("format"), // Reels, Carousel, Feed, Story, Video, Newsletter, Post
+    status: contentStatusEnum("status").notNull().default("draft_brief"),
+    writerId: uuid("writer_id").references(() => users.id),
+    designerId: uuid("designer_id").references(() => users.id),
+    campaignId: uuid("campaign_id").references(() => campaigns.id),
+    objective: text("objective"),
+    keyMessage: text("key_message"),
+    caption: text("caption"),
+    cta: text("cta"),
+    hashtags: text("hashtags"),
+    products: text("products"),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [index("content_items_publish_idx").on(t.publishAt)],
 );
 
 /* ─────────────────────────── KPI ─────────────────────────── */

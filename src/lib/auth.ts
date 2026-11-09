@@ -61,11 +61,3 @@ export async function requireRole(...roles: Role[]): Promise<CurrentUser> {
   }
   return user;
 }
-
-/** Roles that can see every customer, not only the ones they own. */
-export const SEES_ALL_CUSTOMERS: Role[] = [
-  "admin",
-  "executive",
-  "sales_manager",
-  "marketing",
-];

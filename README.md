@@ -81,7 +81,17 @@ drizzle/              file migrasi SQL (commit ke git)
 
 ## Menu
 
-Struktur menu mengikuti demo Phase 1 (`demo.pixeldew.xyz`) dan didefinisikan di `src/lib/nav.ts`. Setiap submenu punya URL `/<menu>/<halaman>`. Submenu yang belum dibangun menampilkan halaman placeholder berisi tujuan modul, status (In development / Next stage / Add-on) dan link ke layar yang sama di demo. Untuk membangun satu modul, buat `src/app/(app)/<menu>/<halaman>/page.tsx` lalu set `ready: true` di `nav.ts`.
+Struktur menu mengikuti demo Phase 1 (`demo.pixeldew.xyz`), didefinisikan di `src/lib/nav.ts`; setiap submenu punya halaman di `src/app/(app)/<menu>/<halaman>/page.tsx`.
+
+- **Dashboard, Sales, Marketing, Event, Database, Report, Setting** membaca database (tampilan + filter; form tambah/edit menyusul). Sales hanya melihat data miliknya; Setting hanya untuk Admin & Sales Manager.
+- **E-Commerce, Store (Later) dan Consignment (Add-on)** menampilkan data contoh statis (`src/lib/preview.ts`) dengan label *Preview* — belum ada tabel database.
+- Detail akun 360°: `/database/accounts/[id]`. Export CSV: `/api/export/{leads|accounts|contacts|products|orders}`.
+
+## Data demo
+
+`src/db/seed.ts` mengisi data dummy dari demo (`src/db/demo/demo-data.json`): 8 user persona, 12 akun, 14 produk, lead, deal, quotation, order + riwayat 12 bulan, visit, task, target, campaign, event, konten. Tanggal digeser supaya "hari ini" di demo = hari seed dijalankan.
+
+Login demo (password = `SEED_ADMIN_PASSWORD` saat seed pertama): `admin@`, `manager@`, `sales@`, `dewi@`, `putu@`, `marketing@`, `finance@`, `designer@example.test`.
 
 ## Skema Phase 1
 
