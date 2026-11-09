@@ -10,6 +10,7 @@ import { findDuplicate } from "@/lib/duplicates";
 import { fieldErrors, formObject, parseRupiah, type FormState } from "@/lib/forms";
 import { DISQUALIFY_REASONS, LEAD_SOURCES, SEGMENTS } from "@/lib/labels";
 import { notify } from "@/lib/notifications";
+import { managersOf } from "@/lib/notifications/recipients";
 import { canAddLeads, canEditOwned, isManager } from "@/lib/permissions";
 import { normalizePhone } from "@/lib/phone";
 
@@ -59,6 +60,13 @@ export async function createLead(_prev: FormState, fd: FormData): Promise<FormSt
   if (ownerId && ownerId !== user.id) {
     await notify({ userIds: [ownerId], type: "lead.hot", title: `New lead for you: ${d.company}`, body: `Added by ${user.name} · ${d.source}`, link: "/sales/leads" });
   }
+  await notify({
+    userIds: await managersOf(ownerId ?? user.id, [user.id, ownerId]),
+    type: "lead.new",
+    title: `New lead: ${d.company}`,
+    body: `${d.segment} · ${d.source} · added by ${user.name}`,
+    link: "/sales/leads",
+  });
   refresh();
   return { ok: true, message: `Lead ${d.company} added.` };
 }
@@ -145,6 +153,13 @@ export async function qualifyLead(_prev: FormState, fd: FormData): Promise<FormS
   });
 
   await audit({ actorId: user.id, action: "qualify", entity: "lead", entityId: lead.company, changes: { account: accountId, deal: d.dealTitle ?? "none" } });
+  await notify({
+    userIds: await managersOf(ownerId, [user.id]),
+    type: "lead.qualified",
+    title: `Lead qualified: ${lead.company}`,
+    body: d.dealTitle ? `New deal: ${d.dealTitle}${value ? ` · Rp ${value.toLocaleString("en-US")}` : ""}` : `Qualified by ${user.name}`,
+    link: `/database/accounts/${accountId}`,
+  });
   refresh();
   return { ok: true, message: `${lead.company} is now an account.` };
 }

@@ -10,6 +10,8 @@ import { getCurrentUser } from "@/lib/auth";
 import { ftime, ymd } from "@/lib/format";
 import { CONTENT_FLOW, CONTENT_STATUS } from "@/lib/labels";
 import { now } from "@/lib/scope";
+import { ContentActions } from "@/components/forms/content-actions";
+import { CONTENT_STEPS, canTakeStep } from "@/lib/content-flow";
 
 export const metadata: Metadata = { title: "Content Calendar" };
 const HREF = "/marketing/content";
@@ -51,9 +53,9 @@ export default async function ContentPage({ searchParams }: PageProps<"/marketin
     const key = ymd(r.at);
     byDay.set(key, [...(byDay.get(key) ?? []), r]);
   }
+  const stepsFor = (r: (typeof all)[number]) => CONTENT_STEPS[r.status].filter((st) => canTakeStep(st, user.role, user.id, r.designerId));
   const myTurn = (r: (typeof all)[number]) =>
-    (user.role === "designer" && r.designerId === user.id && ["ready_for_design", "in_design", "revision"].includes(r.status)) ||
-    (user.role === "marketing" && r.writerId === user.id && ["draft_brief", "in_review"].includes(r.status));
+    (user.role === "designer" || user.role === "marketing") && stepsFor(r).length > 0;
 
   return (
     <>
@@ -106,6 +108,7 @@ export default async function ContentPage({ searchParams }: PageProps<"/marketin
                           {r.products ? ` · ${r.products}` : ""}
                           {myTurn(r) && <span className="ml-1 font-semibold text-accent">· your turn</span>}
                         </p>
+                        <ContentActions contentId={r.id} title={r.title} steps={stepsFor(r)} />
                       </article>
                     ))}
                   </div>

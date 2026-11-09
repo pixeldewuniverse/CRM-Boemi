@@ -16,7 +16,14 @@ export const NOTIFICATION_TYPES = {
   "visit_fee.pending": { label: "Visit fee waiting for approval", emailDefault: true },
   "visit_fee.decided": { label: "Your visit fee was approved/rejected", emailDefault: true },
   "opportunity.stage_changed": { label: "Opportunity stage changed", emailDefault: false },
-  "lead.hot": { label: "New hot lead assigned", emailDefault: true },
+  "lead.hot": { label: "New lead assigned to you", emailDefault: true },
+  "lead.new": { label: "New lead added by your team", emailDefault: false },
+  "lead.qualified": { label: "Lead qualified by your team", emailDefault: false },
+  "deal.won": { label: "Deal won", emailDefault: true },
+  "deal.lost": { label: "Deal lost", emailDefault: true },
+  "content.your_turn": { label: "Content waiting for you", emailDefault: true },
+  "content.update": { label: "Content status changed", emailDefault: false },
+  "digest.daily": { label: "Daily summary", emailDefault: true },
 } as const;
 
 export type NotificationType = keyof typeof NOTIFICATION_TYPES;

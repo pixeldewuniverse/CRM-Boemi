@@ -119,12 +119,26 @@ console.log("VAPID_PUBLIC_KEY=" + b64u(await crypto.subtle.exportKey("raw", k.pu
 
 Saat pindah ke Google Cloud, pakai **kunci yang sama** (simpan di Secret Manager) supaya perangkat yang sudah terdaftar tetap menerima notifikasi.
 
+## Siapa dapat notifikasi apa
+
+| Role | Notifikasi |
+| --- | --- |
+| Sales | Task di-assign / jatuh tempo / terlambat, visit fee disetujui/ditolak, deal atau task miliknya dipindah orang lain, lead di-assign kepadanya |
+| Sales Manager | Lead baru & lead di-qualify oleh tim, deal Won/Lost, visit fee menunggu approval, task tim di *Waiting approval*, ringkasan harian |
+| Finance | Visit fee menunggu approval (langsung + pengingat harian) |
+| Marketing | Konten siap di-review, konten dipublikasikan, task |
+| Designer | Konten siap didesain, revisi diminta (dengan catatan), konten disetujui |
+| Executive | Ringkasan harian (pendapatan kemarin, bulan berjalan vs target, deal menang, lead, visit, fee & task tertunda) |
+
+Notifikasi tidak dikirim ke orang yang melakukan aksi itu sendiri. Semua lewat in-app + push (+ email bila SMTP diset).
+
 ## Cron
 
 | Job | Jadwal (UTC) | Fungsi |
 | --- | --- | --- |
 | `/api/cron/task-reminders` | 00:00 (07:00 WIB) | Pengingat tugas ≤ 24 jam & terlambat (tidak dobel dalam 20 jam) |
 | `/api/cron/pending-visit-fees` | 01:00 (08:00 WIB) | Ingatkan approver soal visit fee > 24 jam |
+| `/api/cron/daily-digest` | 23:30 (06:30 WIB) | Ringkasan harian untuk Executive & Sales Manager (sekali per hari) |
 
 Semua job butuh header `Authorization: Bearer $CRON_SECRET`. Vercel Cron mengirim header ini otomatis bila `CRON_SECRET` diset.
 

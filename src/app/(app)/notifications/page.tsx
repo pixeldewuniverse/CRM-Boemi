@@ -45,7 +45,7 @@ export default async function NotificationsPage() {
                 <p className={n.readAt ? "" : "font-semibold"}>
                   {n.link ? <Link href={n.link}>{n.title}</Link> : n.title}
                 </p>
-                {n.body && <p className="mt-0.5 text-muted">{n.body}</p>}
+                {n.body && <p className="mt-0.5 whitespace-pre-line text-muted">{n.body}</p>}
               </div>
               <time className="shrink-0 text-xs text-muted" dateTime={n.createdAt.toISOString()}>
                 {n.createdAt.toLocaleString("en-GB", { timeZone: "Asia/Jakarta", dateStyle: "medium", timeStyle: "short" })}

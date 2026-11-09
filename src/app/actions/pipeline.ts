@@ -12,6 +12,8 @@ import { canSell, isManager } from "@/lib/permissions";
 import { customerScope } from "@/lib/customers";
 import { and } from "drizzle-orm";
 import { notify } from "@/lib/notifications";
+import { managersOf } from "@/lib/notifications/recipients";
+import { rp } from "@/lib/format";
 
 const MANAGES = ["admin", "sales_manager"];
 
@@ -33,7 +35,11 @@ export async function moveDeal(input: z.input<typeof Input>): Promise<MoveResult
 
   const db = getDb();
   const o = schema.opportunities;
-  const [deal] = await db.select({ ownerId: o.ownerId, stage: o.stage, title: o.title }).from(o).where(eq(o.id, dealId));
+  const [deal] = await db
+    .select({ ownerId: o.ownerId, stage: o.stage, title: o.title, value: o.value, account: schema.customers.name })
+    .from(o)
+    .innerJoin(schema.customers, eq(schema.customers.id, o.customerId))
+    .where(eq(o.id, dealId));
   if (!deal) return { ok: false, error: "Deal not found." };
   if (deal.ownerId !== user.id && !MANAGES.includes(user.role)) {
     return { ok: false, error: "Only the deal owner or a sales manager can move this deal." };
@@ -58,6 +64,15 @@ export async function moveDeal(input: z.input<typeof Input>): Promise<MoveResult
       type: "opportunity.stage_changed",
       title: `${deal.title} moved to ${STAGE[stage].label}`,
       body: `Moved by ${user.name}.`,
+      link: "/sales/pipeline",
+    });
+  }
+  if (stage === "won" || stage === "lost") {
+    await notify({
+      userIds: await managersOf(deal.ownerId, [user.id]),
+      type: stage === "won" ? "deal.won" : "deal.lost",
+      title: stage === "won" ? `Deal won: ${deal.title}` : `Deal lost: ${deal.title}`,
+      body: `${deal.account} · ${rp(deal.value ?? 0)}${stage === "lost" && lostReason ? ` · ${lostReason}` : ""}`,
       link: "/sales/pipeline",
     });
   }

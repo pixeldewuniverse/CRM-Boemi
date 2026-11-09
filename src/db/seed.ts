@@ -129,8 +129,6 @@ async function main() {
       .from(schema.products)
       .where(eq(schema.products.sku, MARKER_SKU))
       .limit(1);
-    if (marker) return console.log("Demo data already present — skipping seed.");
-
     // Reuse the existing demo password if logins already exist.
     const [existing] = await db
       .select({ hash: schema.users.passwordHash })
@@ -139,6 +137,10 @@ async function main() {
       .limit(1);
 
     let passwordHash = existing?.hash ?? null;
+    if (marker) {
+      if (passwordHash) await ensureExtraDemoUsers(db, passwordHash);
+      return console.log("Demo data already present — skipping seed.");
+    }
     if (!passwordHash) {
       const password = process.env.SEED_ADMIN_PASSWORD;
       if (!password) {
@@ -152,10 +154,25 @@ async function main() {
     await db.transaction(async (tx) => {
       await removeOldMinimalSeed(tx as unknown as Db);
       await seedDemo(tx as unknown as Db, passwordHash!);
+      await ensureExtraDemoUsers(tx as unknown as Db, passwordHash!);
     });
     console.log("Seeded demo data: 8 users, 14 products, 12 accounts, leads, deals, quotations, orders (+12-month history), visits, tasks, campaigns, events, content.");
   } finally {
     await client.end();
+  }
+}
+
+/** Personas added after the first demo seed (safe to run on every deploy). */
+async function ensureExtraDemoUsers(db: Db, passwordHash: string) {
+  const extras = [
+    { email: "owner@example.test", name: "BOEMI Owner", role: "executive" as const, position: "Owner / Director", department: "Management", region: "All regions" },
+  ];
+  for (const u of extras) {
+    const [row] = await db.select({ id: schema.users.id }).from(schema.users).where(sql`lower(${schema.users.email}) = ${u.email}`).limit(1);
+    if (!row) {
+      await db.insert(schema.users).values({ ...u, passwordHash, joinedOn: "2023-01-02", active: true });
+      console.log(`Added demo user ${u.email}`);
+    }
   }
 }
 
