@@ -18,6 +18,7 @@ export const NOTIFICATION_TYPES = {
   "opportunity.stage_changed": { label: "Opportunity stage changed", emailDefault: false },
   "lead.hot": { label: "New lead assigned to you", emailDefault: true },
   "lead.new": { label: "New lead added by your team", emailDefault: false },
+  "lead.journey": { label: "New leads from the aroma journey", emailDefault: false },
   "lead.qualified": { label: "Lead qualified by your team", emailDefault: false },
   "deal.won": { label: "Deal won", emailDefault: true },
   "deal.lost": { label: "Deal lost", emailDefault: true },

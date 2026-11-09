@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { disqualifyLead, markLeadContacted, qualifyLead } from "@/app/actions/leads";
+import { assignLead, disqualifyLead, markLeadContacted, qualifyLead } from "@/app/actions/leads";
 import { approveFee, rejectFee } from "@/app/actions/visits";
 import { DISQUALIFY_REASONS } from "@/lib/labels";
 import { SelectField, TextArea, TextField } from "./fields";
@@ -76,5 +76,14 @@ export function FeeActions({ feeId }: { feeId: string }) {
       </FormDialog>
       {error && <p className="w-full text-xs text-bad">{error}</p>}
     </div>
+  );
+}
+
+export function AssignLead({ leadId, company, reps, current }: { leadId: string; company: string; reps: { value: string; label: string }[]; current?: string | null }) {
+  return (
+    <FormDialog trigger={current ? "Reassign" : "Assign"} triggerClassName={`${small} ${current ? "" : "border-accent text-accent"}`} title={`Assign ${company}`} action={assignLead} submitLabel="Assign">
+      <input type="hidden" name="leadId" value={leadId} />
+      <SelectField name="ownerId" label="Sales rep" required options={reps} placeholder="Choose…" defaultValue={current ?? undefined} />
+    </FormDialog>
   );
 }

@@ -32,3 +32,12 @@ export async function campaignOptions() {
     .where(inArray(schema.campaigns.status, ["running", "scheduled"]))
     .orderBy(asc(schema.campaigns.name));
 }
+
+/** Sales reps anyone allowed to assign leads (managers, marketing) can pick. */
+export async function assignableReps() {
+  return getDb()
+    .select({ value: schema.users.id, label: schema.users.name })
+    .from(schema.users)
+    .where(and(eq(schema.users.active, true), inArray(schema.users.role, ["sales", "sales_manager"])))
+    .orderBy(asc(schema.users.name));
+}

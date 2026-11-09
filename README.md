@@ -132,6 +132,18 @@ Saat pindah ke Google Cloud, pakai **kunci yang sama** (simpan di Secret Manager
 
 Notifikasi tidak dikirim ke orang yang melakukan aksi itu sendiri. Semua lewat in-app + push (+ email bila SMTP diset).
 
+## Integrasi form journey (journey.boemibotanicals.com)
+
+Situs aroma journey mengirim tamu ke `POST /api/leads/journey` (header `Authorization: Bearer JOURNEY_SYNC_KEY`).
+
+- Hanya tamu yang **mencentang persetujuan penawaran** yang dikirim, sebagai lead sumber *Aroma journey*, segmen *Online & Event*, belum ada pemilik. Marketing/Sales Manager membagikannya lewat tombol **Assign**.
+- Data: nama, WhatsApp, Instagram, email, ulang tahun, pilihan take-home, dan hasil aroma (setelah quiz selesai).
+- Tamu yang sama dikirim ulang → lead yang sama diperbarui (tidak dobel). Nomor/email yang sudah jadi akun → dicatat di akun, bukan lead baru.
+- Tamu yang mencabut persetujuan → hanya `{ externalId, marketingConsent: false }` yang dikirim; lead ditandai tanpa consent.
+- Marketing mendapat maksimal 1 notifikasi gabungan per 6 jam.
+
+Env: `JOURNEY_SYNC_KEY` (string acak ≥ 32 karakter, sama dengan `CRM_SYNC_KEY` di project journey).
+
 ## Cron
 
 | Job | Jadwal (UTC) | Fungsi |

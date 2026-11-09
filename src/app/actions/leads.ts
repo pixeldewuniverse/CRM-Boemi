@@ -1,6 +1,6 @@
 "use server";
 
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { refresh } from "next/cache";
 import { z } from "zod";
 import { getDb, schema } from "@/db";
@@ -179,4 +179,29 @@ export async function disqualifyLead(_prev: FormState, fd: FormData): Promise<Fo
   await audit({ actorId: user.id, action: "disqualify", entity: "lead", entityId: lead.company, changes: { reason: parsed.data.reason } });
   refresh();
   return { ok: true };
+}
+
+const Assign = z.object({ leadId: z.uuid(), ownerId: z.uuid("Choose a sales rep.") });
+
+/** Marketing or a manager hands a lead (e.g. from the aroma journey) to a sales rep. */
+export async function assignLead(_prev: FormState, fd: FormData): Promise<FormState> {
+  const user = await verifyUser();
+  if (!isManager(user) && user.role !== "marketing") return { ok: false, error: "Only Marketing or a Sales Manager can assign leads." };
+  const parsed = Assign.safeParse(formObject(fd));
+  if (!parsed.success) return fieldErrors(parsed.error);
+  const db = getDb();
+  const lead = await loadLead(parsed.data.leadId);
+  if (!lead) return { ok: false, error: "Lead not found." };
+  const [rep] = await db
+    .select({ id: schema.users.id, name: schema.users.name })
+    .from(schema.users)
+    .where(and(eq(schema.users.id, parsed.data.ownerId), eq(schema.users.active, true), inArray(schema.users.role, ["sales", "sales_manager"])));
+  if (!rep) return { ok: false, error: "Please check the highlighted fields.", fieldErrors: { ownerId: "Choose an active sales rep." } };
+  await db.update(schema.leads).set({ ownerId: rep.id }).where(eq(schema.leads.id, lead.id));
+  await audit({ actorId: user.id, action: "assign", entity: "lead", entityId: lead.company, changes: { owner: rep.name } });
+  if (rep.id !== user.id) {
+    await notify({ userIds: [rep.id], type: "lead.hot", title: `New lead for you: ${lead.company}`, body: lead.note ?? `Assigned by ${user.name}`, link: "/sales/leads" });
+  }
+  refresh();
+  return { ok: true, message: `Assigned to ${rep.name}.` };
 }

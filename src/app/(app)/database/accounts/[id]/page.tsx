@@ -18,6 +18,12 @@ import { fdate, fday, fphone, rp, rpk } from "@/lib/format";
 import { CUSTOMER_STATUS, FEE_STATUS, ORDER_STATUS, STAGE, TASK_STATUS } from "@/lib/labels";
 import { PRICE_TIERS, tierForSegment } from "@/lib/pricing";
 
+/** "Teduh — The Return to Stillness" from interests.journey (aroma journey site). */
+function journeyScent(interests: Record<string, unknown> | null): string | null {
+  const scent = (interests?.journey as { scent?: { name?: string; tagline?: string } } | undefined)?.scent;
+  return scent?.name ? `${scent.name}${scent.tagline ? ` — ${scent.tagline}` : ""}` : null;
+}
+
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export async function generateMetadata({ params }: PageProps<"/database/accounts/[id]">): Promise<Metadata> {
@@ -52,6 +58,7 @@ export default async function AccountPage({ params }: PageProps<"/database/accou
       tier: c.qualificationTier,
       reason: c.qualificationReason,
       consent: c.marketingConsent,
+      interests: c.interests,
       since: c.createdAt,
       owner: schema.users.name,
     })
@@ -137,6 +144,12 @@ export default async function AccountPage({ params }: PageProps<"/database/accou
               <dd>{account.source ?? "—"}</dd>
               <dt className="text-muted">Marketing</dt>
               <dd>{account.consent ? "Consent given" : "No consent"}</dd>
+              {journeyScent(account.interests) && (
+                <>
+                  <dt className="text-muted">Aroma journey</dt>
+                  <dd>{journeyScent(account.interests)}</dd>
+                </>
+              )}
             </dl>
           </Panel>
           <Panel title="Contacts" flush>

@@ -459,12 +459,21 @@ export const leads = pgTable(
     qualificationTier: leadTierEnum("qualification_tier"),
     qualificationReason: text("qualification_reason"),
     receivedOn: date("received_on").notNull().defaultNow(),
+    // From other BOEMI systems (e.g. the aroma journey site)
+    externalSource: text("external_source"),
+    externalRef: text("external_ref"),
+    instagram: text("instagram"),
+    birthday: date("birthday"),
+    interests: jsonb("interests").$type<Record<string, unknown>>(),
+    marketingConsent: boolean("marketing_consent").notNull().default(false),
+    consentAt: timestamp("consent_at", { withTimezone: true }),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
   (t) => [
     index("leads_owner_status_idx").on(t.ownerId, t.status),
     index("leads_source_idx").on(t.source),
+    uniqueIndex("leads_external_uq").on(t.externalSource, t.externalRef).where(sql`${t.externalRef} is not null`),
   ],
 );
 

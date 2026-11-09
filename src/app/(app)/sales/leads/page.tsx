@@ -8,11 +8,11 @@ import { StatusPill } from "@/components/ui/pill";
 import { getDb, schema } from "@/db";
 import { getCurrentUser } from "@/lib/auth";
 import { NewLeadButton } from "@/components/forms/sales-forms";
-import { LeadActions } from "@/components/forms/row-actions";
-import { canAddLeads, canEditOwned } from "@/lib/permissions";
-import { campaignOptions, repOptions } from "@/lib/queries/options";
+import { AssignLead, LeadActions } from "@/components/forms/row-actions";
+import { canAddLeads, canEditOwned, isManager } from "@/lib/permissions";
+import { assignableReps, campaignOptions, repOptions } from "@/lib/queries/options";
 import { fdate, fphone } from "@/lib/format";
-import { LEAD_STATUS } from "@/lib/labels";
+import { LEAD_SOURCES, LEAD_STATUS } from "@/lib/labels";
 import { ownedBy } from "@/lib/scope";
 
 export const metadata: Metadata = { title: "Leads" };
@@ -25,11 +25,13 @@ export default async function LeadsPage({ searchParams }: PageProps<"/sales/lead
   const params = await searchParams;
   const status = STATUSES.includes(params.status as Status) ? (params.status as Status) : undefined;
   const q = typeof params.q === "string" ? params.q.trim().slice(0, 100) : "";
+  const source = (LEAD_SOURCES as readonly string[]).includes(params.source as string) ? (params.source as string) : undefined;
+  const canAssign = isManager(user) || user.role === "marketing";
   const db = getDb();
   const l = schema.leads;
   const scope = ownedBy(user, l.ownerId);
 
-  const [rows, counts, reps, campaigns] = await Promise.all([
+  const [rows, counts, reps, campaigns, sourceCounts, assignable] = await Promise.all([
     db
       .select({
         id: l.id,
@@ -47,6 +49,10 @@ export default async function LeadsPage({ searchParams }: PageProps<"/sales/lead
         received: l.receivedOn,
         ownerId: l.ownerId,
         disqReason: l.disqualifyReason,
+        instagram: l.instagram,
+        email: l.email,
+        consent: l.marketingConsent,
+        interests: l.interests,
         owner: schema.users.name,
       })
       .from(l)
@@ -55,6 +61,7 @@ export default async function LeadsPage({ searchParams }: PageProps<"/sales/lead
         and(
           scope,
           status ? eq(l.status, status) : undefined,
+          source ? eq(l.source, source) : undefined,
           q ? or(ilike(l.company, `%${q}%`), ilike(l.picName, `%${q}%`), ilike(l.city, `%${q}%`)) : undefined,
         ),
       )
@@ -63,6 +70,8 @@ export default async function LeadsPage({ searchParams }: PageProps<"/sales/lead
     db.select({ status: l.status, n: count() }).from(l).where(scope).groupBy(l.status),
     repOptions(user),
     campaignOptions(),
+    db.select({ source: l.source, n: count() }).from(l).where(scope).groupBy(l.source),
+    canAssign ? assignableReps() : Promise.resolve([]),
   ]);
   const byStatus = Object.fromEntries(counts.map((c) => [c.status, c.n]));
   const total = counts.reduce((s, c) => s + c.n, 0);
@@ -75,16 +84,28 @@ export default async function LeadsPage({ searchParams }: PageProps<"/sales/lead
           pathname={HREF}
           param="status"
           value={status}
-          keep={{ q }}
+          keep={{ q, source }}
           options={[
             { value: undefined, label: "All", count: total },
             ...STATUSES.map((s) => ({ value: s, label: LEAD_STATUS[s].label, count: byStatus[s] ?? 0 })),
           ]}
         />
         <div className="ml-auto">
-          <SearchBox action={HREF} value={q} placeholder="Search company, PIC, city…" keep={{ status }} />
+          <SearchBox action={HREF} value={q} placeholder="Search company, PIC, city…" keep={{ status, source }} />
         </div>
       </div>
+      {sourceCounts.length > 1 && (
+        <FilterChips
+          pathname={HREF}
+          param="source"
+          value={source}
+          keep={{ q, status }}
+          options={[
+            { value: undefined, label: "Any source" },
+            ...sourceCounts.sort((a, b) => b.n - a.n).map((s) => ({ value: s.source, label: s.source, count: s.n })),
+          ]}
+        />
+      )}
       <Panel flush>
         {rows.length === 0 ? (
           <Empty>No leads match this filter.</Empty>
@@ -108,8 +129,12 @@ export default async function LeadsPage({ searchParams }: PageProps<"/sales/lead
                   <td>
                     <p className="font-semibold">{r.company}</p>
                     <p className="text-xs text-muted">
-                      {r.pic} · {fphone(r.phone)}
+                      {r.pic !== r.company && `${r.pic} · `}
+                      {fphone(r.phone)}
+                      {r.instagram && ` · @${r.instagram}`}
+                      {!r.phone && !r.instagram && r.email}
                     </p>
+                    {r.consent && <p className="text-xs text-ok">Agreed to offers</p>}
                     {r.note && <p className="mt-1 max-w-sm text-xs text-muted">{r.note}</p>}
                   </td>
                   <td>
@@ -126,7 +151,14 @@ export default async function LeadsPage({ searchParams }: PageProps<"/sales/lead
                     <StatusPill map={LEAD_STATUS} value={r.status} />
                     {r.disqReason && <p className="mt-1 text-xs text-muted">{r.disqReason}</p>}
                   </td>
-                  <td>{r.owner ?? "—"}</td>
+                  <td>
+                    {r.owner ?? <span className="text-warn">Unassigned</span>}
+                    {canAssign && r.status !== "qualified" && r.status !== "disqualified" && (
+                      <div className="mt-1">
+                        <AssignLead leadId={r.id} company={r.company} reps={assignable} current={r.ownerId} />
+                      </div>
+                    )}
+                  </td>
                   <td className="num">{fdate(r.received)}</td>
                   <td>{canEditOwned(user, r.ownerId) && <LeadActions leadId={r.id} company={r.company} status={r.status} />}</td>
                 </tr>
