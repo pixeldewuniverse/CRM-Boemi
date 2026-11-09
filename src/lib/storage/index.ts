@@ -3,7 +3,7 @@ import "server-only";
 /**
  * Single storage interface for uploads (visit photos, receipts, imports).
  * Staging uses Vercel Blob; production uses Google Cloud Storage.
- * Switch with STORAGE_DRIVER=vercel-blob | gcs — no other code changes.
+ * Switch with STORAGE_DRIVER=vercel-blob | gcs (| local for development) — no other code changes.
  *
  * Only the object key is stored in the database, never a public URL.
  * Files are always private and served through the authenticated
@@ -27,7 +27,10 @@ export async function getStorage(): Promise<StorageDriver> {
   if (driver) return driver;
   const name = process.env.STORAGE_DRIVER ?? "vercel-blob";
 
-  if (name === "gcs") {
+  if (name === "local") {
+    const { createLocalDriver } = await import("./local");
+    driver = createLocalDriver();
+  } else if (name === "gcs") {
     const { createGcsDriver } = await import("./gcs");
     driver = createGcsDriver();
   } else if (name === "vercel-blob") {

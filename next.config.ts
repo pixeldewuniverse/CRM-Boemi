@@ -6,6 +6,10 @@ const nextConfig: NextConfig = {
   cacheComponents: true,
   partialPrefetching: true,
   poweredByHeader: false,
+  experimental: {
+    // Visit photos are compressed in the browser (~0.5 MB); leave headroom.
+    serverActions: { bodySizeLimit: "4mb" },
+  },
   turbopack: {
     rules: {
       "*.css": {

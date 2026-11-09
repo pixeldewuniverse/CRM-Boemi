@@ -7,6 +7,10 @@ import { Empty, Panel } from "@/components/ui/panel";
 import { StatusPill } from "@/components/ui/pill";
 import { getDb, schema } from "@/db";
 import { getCurrentUser } from "@/lib/auth";
+import { NewLeadButton } from "@/components/forms/sales-forms";
+import { LeadActions } from "@/components/forms/row-actions";
+import { canAddLeads, canEditOwned } from "@/lib/permissions";
+import { campaignOptions, repOptions } from "@/lib/queries/options";
 import { fdate, fphone } from "@/lib/format";
 import { LEAD_STATUS } from "@/lib/labels";
 import { ownedBy } from "@/lib/scope";
@@ -25,7 +29,7 @@ export default async function LeadsPage({ searchParams }: PageProps<"/sales/lead
   const l = schema.leads;
   const scope = ownedBy(user, l.ownerId);
 
-  const [rows, counts] = await Promise.all([
+  const [rows, counts, reps, campaigns] = await Promise.all([
     db
       .select({
         id: l.id,
@@ -41,6 +45,8 @@ export default async function LeadsPage({ searchParams }: PageProps<"/sales/lead
         tier: l.qualificationTier,
         reason: l.qualificationReason,
         received: l.receivedOn,
+        ownerId: l.ownerId,
+        disqReason: l.disqualifyReason,
         owner: schema.users.name,
       })
       .from(l)
@@ -55,13 +61,15 @@ export default async function LeadsPage({ searchParams }: PageProps<"/sales/lead
       .orderBy(sql`${l.qualificationScore} desc nulls last`, desc(l.receivedOn))
       .limit(200),
     db.select({ status: l.status, n: count() }).from(l).where(scope).groupBy(l.status),
+    repOptions(user),
+    campaignOptions(),
   ]);
   const byStatus = Object.fromEntries(counts.map((c) => [c.status, c.n]));
   const total = counts.reduce((s, c) => s + c.n, 0);
 
   return (
     <>
-      <PageHeader href={HREF} />
+      <PageHeader href={HREF} actions={canAddLeads(user) ? <NewLeadButton reps={reps} campaigns={campaigns} /> : undefined} />
       <div className="flex flex-wrap items-center gap-3">
         <FilterChips
           pathname={HREF}
@@ -81,7 +89,7 @@ export default async function LeadsPage({ searchParams }: PageProps<"/sales/lead
         {rows.length === 0 ? (
           <Empty>No leads match this filter.</Empty>
         ) : (
-          <table className="tbl min-w-[980px]">
+          <table className="tbl min-w-[1180px]">
             <thead>
               <tr>
                 <th>Company</th>
@@ -91,6 +99,7 @@ export default async function LeadsPage({ searchParams }: PageProps<"/sales/lead
                 <th>Status</th>
                 <th>Owner</th>
                 <th className="num">Received</th>
+                <th className="sr-only">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -115,9 +124,11 @@ export default async function LeadsPage({ searchParams }: PageProps<"/sales/lead
                   </td>
                   <td>
                     <StatusPill map={LEAD_STATUS} value={r.status} />
+                    {r.disqReason && <p className="mt-1 text-xs text-muted">{r.disqReason}</p>}
                   </td>
                   <td>{r.owner ?? "—"}</td>
                   <td className="num">{fdate(r.received)}</td>
+                  <td>{canEditOwned(user, r.ownerId) && <LeadActions leadId={r.id} company={r.company} status={r.status} />}</td>
                 </tr>
               ))}
             </tbody>

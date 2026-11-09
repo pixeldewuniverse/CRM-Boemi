@@ -9,6 +9,9 @@ import { Empty, Panel } from "@/components/ui/panel";
 import { StatusPill } from "@/components/ui/pill";
 import { getDb, schema } from "@/db";
 import { getCurrentUser } from "@/lib/auth";
+import { NewAccountButton } from "@/components/forms/sales-forms";
+import { canSell } from "@/lib/permissions";
+import { repOptions } from "@/lib/queries/options";
 import { customerScope } from "@/lib/customers";
 import { fdate, rpk } from "@/lib/format";
 import { CUSTOMER_STATUS, SEGMENTS } from "@/lib/labels";
@@ -62,7 +65,10 @@ export default async function AccountsPage({ searchParams }: PageProps<"/databas
       <PageHeader
         href={HREF}
         actions={
-          <ExportLink entity="accounts" />
+          <>
+            <ExportLink entity="accounts" />
+            {canSell(user) && <NewAccountButton reps={await repOptions(user)} />}
+          </>
         }
       />
       <div className="flex flex-col gap-3">

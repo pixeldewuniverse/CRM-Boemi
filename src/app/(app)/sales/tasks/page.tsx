@@ -6,6 +6,9 @@ import { Empty, Panel } from "@/components/ui/panel";
 import { Pill } from "@/components/ui/pill";
 import { getDb, schema } from "@/db";
 import { getCurrentUser } from "@/lib/auth";
+import { NewTaskButton } from "@/components/forms/sales-forms";
+import { canSell } from "@/lib/permissions";
+import { accountOptions, repOptions } from "@/lib/queries/options";
 import { TaskBoard } from "@/components/board/task-board";
 import { fdate, ymd } from "@/lib/format";
 import { now, ownedBy, seesAll } from "@/lib/scope";
@@ -43,7 +46,8 @@ export default async function TasksPage({ searchParams }: PageProps<"/sales/task
     account: schema.customers.name,
     assignee: schema.users.name,
   };
-  const [open, log] = await Promise.all([
+  const canAdd = canSell(user) || user.role === "marketing";
+  const [open, log, accounts, reps] = await Promise.all([
     db
       .select(select)
       .from(t)
@@ -59,12 +63,14 @@ export default async function TasksPage({ searchParams }: PageProps<"/sales/task
       .where(and(base, eq(t.status, "done"), gte(t.completedAt, new Date(today.getTime() - 30 * 86_400_000))))
       .orderBy(desc(t.completedAt))
       .limit(20),
+    canAdd ? accountOptions(user) : Promise.resolve([]),
+    repOptions(user),
   ]);
   const overdue = open.filter((x) => x.status !== "done" && x.due && x.due < today).length;
 
   return (
     <>
-      <PageHeader href={HREF} />
+      <PageHeader href={HREF} actions={canAdd ? <NewTaskButton accounts={accounts} reps={reps} /> : undefined} />
       <div className="flex flex-wrap items-center gap-3">
         {people.length > 0 && (
           <FilterChips

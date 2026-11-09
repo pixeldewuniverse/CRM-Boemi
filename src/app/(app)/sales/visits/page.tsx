@@ -9,6 +9,10 @@ import { StatusPill } from "@/components/ui/pill";
 import { Stats } from "@/components/ui/stats";
 import { getDb, schema } from "@/db";
 import { getCurrentUser } from "@/lib/auth";
+import { CheckInButton } from "@/components/forms/sales-forms";
+import { FeeActions } from "@/components/forms/row-actions";
+import { canApproveFees, canSell } from "@/lib/permissions";
+import { accountOptions } from "@/lib/queries/options";
 import { fdate, ftime, rp, ym } from "@/lib/format";
 import { FEE_STATUS } from "@/lib/labels";
 import { now, ownedBy } from "@/lib/scope";
@@ -17,7 +21,6 @@ export const metadata: Metadata = { title: "Visits" };
 const HREF = "/sales/visits";
 const FEES = ["pending", "approved", "rejected"] as const;
 type Fee = (typeof FEES)[number];
-const APPROVERS = ["admin", "sales_manager", "finance"];
 
 export default async function VisitsPage({ searchParams }: PageProps<"/sales/visits">) {
   const user = await getCurrentUser();
@@ -30,6 +33,7 @@ export default async function VisitsPage({ searchParams }: PageProps<"/sales/vis
   const f = schema.visitFees;
   const decider = alias(schema.users, "decider");
 
+  const accounts = canSell(user) ? await accountOptions(user) : [];
   const rows = await db
     .select({
       id: v.id,
@@ -42,6 +46,8 @@ export default async function VisitsPage({ searchParams }: PageProps<"/sales/vis
       account: schema.customers.name,
       city: schema.customers.city,
       sales: schema.users.name,
+      feeId: f.id,
+      feeBy: f.requestedBy,
       feeAmount: f.amount,
       feeStatus: f.status,
       feeNote: f.decisionNote,
@@ -60,11 +66,11 @@ export default async function VisitsPage({ searchParams }: PageProps<"/sales/vis
   const thisMonth = rows.filter((r) => r.at && r.at >= monthStart).length;
   const pending = rows.filter((r) => r.feeStatus === "pending");
   const approved = rows.filter((r) => r.feeStatus === "approved" || r.feeStatus === "paid");
-  const canApprove = APPROVERS.includes(user.role);
+  const canApprove = canApproveFees(user);
 
   return (
     <>
-      <PageHeader href={HREF} />
+      <PageHeader href={HREF} actions={canSell(user) ? <CheckInButton accounts={accounts} /> : undefined} />
       <Stats
         items={[
           { label: "Visits this month", value: thisMonth },
@@ -130,7 +136,13 @@ export default async function VisitsPage({ searchParams }: PageProps<"/sales/vis
                     ) : (
                       "—"
                     )}
-                    <p className="text-xs text-muted">{r.photo ? "Photo attached" : "Photo: demo"}</p>
+                    {r.photo ? (
+                      <a href={`/api/files/${r.photo}`} target="_blank" rel="noopener noreferrer" className="block text-xs text-accent hover:underline">
+                        View photo ↗
+                      </a>
+                    ) : (
+                      <p className="text-xs text-muted">No photo (demo data)</p>
+                    )}
                   </td>
                   <td className="max-w-xs text-muted">{r.notes}</td>
                   <td className="num font-semibold">{rp(r.feeAmount)}</td>
@@ -138,6 +150,7 @@ export default async function VisitsPage({ searchParams }: PageProps<"/sales/vis
                     <StatusPill map={FEE_STATUS} value={r.feeStatus} />
                     {r.decidedBy && <p className="mt-1 text-xs text-muted">by {r.decidedBy}</p>}
                     {r.feeNote && <p className="mt-1 max-w-48 text-xs text-bad">{r.feeNote}</p>}
+                    {canApprove && r.feeStatus === "pending" && r.feeId && r.feeBy !== user.id && <FeeActions feeId={r.feeId} />}
                   </td>
                 </tr>
               ))}

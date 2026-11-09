@@ -10,6 +10,9 @@ import { StatusPill } from "@/components/ui/pill";
 import { Stats } from "@/components/ui/stats";
 import { getDb, schema } from "@/db";
 import { getCurrentUser } from "@/lib/auth";
+import { CheckInButton, NewDealButton, NewTaskButton } from "@/components/forms/sales-forms";
+import { canSell } from "@/lib/permissions";
+import { repOptions } from "@/lib/queries/options";
 import { customerScope } from "@/lib/customers";
 import { fdate, fday, fphone, rp, rpk } from "@/lib/format";
 import { CUSTOMER_STATUS, FEE_STATUS, ORDER_STATUS, STAGE, TASK_STATUS } from "@/lib/labels";
@@ -57,7 +60,7 @@ export default async function AccountPage({ params }: PageProps<"/database/accou
     .where(and(eq(c.id, id), customerScope(user)));
   if (!account) notFound();
 
-  const [contacts, deals, orders, visits, tasks] = await Promise.all([
+  const [contacts, deals, orders, visits, tasks, reps] = await Promise.all([
     db.select().from(schema.contacts).where(eq(schema.contacts.customerId, id)),
     db.select().from(schema.opportunities).where(eq(schema.opportunities.customerId, id)).orderBy(desc(schema.opportunities.expectedCloseOn)),
     db.select().from(schema.orders).where(and(eq(schema.orders.customerId, id), ne(schema.orders.status, "cancelled"))).orderBy(desc(schema.orders.orderedAt)),
@@ -74,6 +77,7 @@ export default async function AccountPage({ params }: PageProps<"/database/accou
       .leftJoin(schema.users, eq(schema.users.id, schema.tasks.assigneeId))
       .where(eq(schema.tasks.customerId, id))
       .orderBy(desc(schema.tasks.dueAt)),
+    repOptions(user),
   ]);
 
   const lifetime = orders.reduce((s, o) => s + o.total, 0);
@@ -89,7 +93,18 @@ export default async function AccountPage({ params }: PageProps<"/database/accou
       <PageTitle
         title={account.name}
         description={`${account.segment} · ${account.city} · owned by ${account.owner ?? "—"} · customer since ${fdate(account.since)}`}
-        actions={<StatusPill map={CUSTOMER_STATUS} value={account.status} />}
+        actions={
+          <>
+            <StatusPill map={CUSTOMER_STATUS} value={account.status} />
+            {canSell(user) && (
+              <>
+                <CheckInButton accounts={[{ value: account.id, label: account.name }]} defaultAccountId={account.id} />
+                <NewDealButton accounts={[{ value: account.id, label: account.name }]} reps={reps} defaultAccountId={account.id} triggerClassName="btn" />
+                <NewTaskButton accounts={[{ value: account.id, label: account.name }]} reps={reps} defaultAccountId={account.id} triggerClassName="btn" />
+              </>
+            )}
+          </>
+        }
       />
       <Stats
         items={[

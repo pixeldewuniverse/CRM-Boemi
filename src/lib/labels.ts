@@ -114,3 +114,5 @@ export const SEGMENTS = ["Hotel & Spa", "Retail Partner", "Corporate Gift", "Onl
 export const LEAD_SOURCES = ["Website", "Instagram", "WhatsApp", "Referral", "Event / Exhibition", "Walk-in Store"] as const;
 export const LOST_REASONS = ["Price too high", "Chose a competitor", "No budget yet", "Unresponsive", "Other"] as const;
 export const ACTIVITY_TYPES = ["Follow-up", "Call", "WhatsApp", "Email", "Visit", "Meeting", "Send samples", "Brief", "Design"] as const;
+export const DISQUALIFY_REASONS = ["No budget", "Not a fit", "Unresponsive", "Duplicate", "Other"] as const;
+export const VISIT_PURPOSES = ["Account visit", "Product demo", "Sample delivery", "Restock check", "Payment collection", "Complaint handling"] as const;

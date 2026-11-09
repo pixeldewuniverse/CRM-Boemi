@@ -6,7 +6,11 @@ import { z } from "zod";
 import { getDb, schema } from "@/db";
 import { audit } from "@/lib/audit";
 import { verifyUser } from "@/lib/auth";
-import { TASK_COLUMNS, TASK_STATUS } from "@/lib/labels";
+import { fieldErrors, formObject, type FormState } from "@/lib/forms";
+import { ACTIVITY_TYPES, TASK_COLUMNS, TASK_STATUS } from "@/lib/labels";
+import { canSell, isManager } from "@/lib/permissions";
+import { customerScope } from "@/lib/customers";
+import { and } from "drizzle-orm";
 import { notify } from "@/lib/notifications";
 import type { MoveResult } from "./pipeline";
 
@@ -67,4 +71,47 @@ export async function moveTask(input: z.input<typeof Input>): Promise<MoveResult
   }
   refresh();
   return { ok: true };
+}
+
+const NewTask = z.object({
+  title: z.string("Describe the task.").min(3, "Describe the task.").max(200),
+  type: z.enum(ACTIVITY_TYPES).default("Follow-up"),
+  accountId: z.uuid().optional(),
+  dueDate: z.iso.date("Pick a due date."),
+  dueTime: z.string().regex(/^\d{2}:\d{2}$/).default("17:00"),
+  assigneeId: z.uuid().optional(),
+  description: z.string().max(1000).optional(),
+});
+
+export async function createTask(_prev: FormState, fd: FormData): Promise<FormState> {
+  const user = await verifyUser();
+  if (!canSell(user) && user.role !== "marketing") return { ok: false, error: "Your role can't add tasks here." };
+  const parsed = NewTask.safeParse(formObject(fd));
+  if (!parsed.success) return fieldErrors(parsed.error);
+  const d = parsed.data;
+  if (d.accountId) {
+    const [acc] = await getDb()
+      .select({ id: schema.customers.id })
+      .from(schema.customers)
+      .where(and(eq(schema.customers.id, d.accountId), customerScope(user)));
+    if (!acc) return { ok: false, error: "Account not found.", fieldErrors: { accountId: "Choose one of your accounts." } };
+  }
+  const assigneeId = isManager(user) && d.assigneeId ? d.assigneeId : user.id;
+  const dueAt = new Date(`${d.dueDate}T${d.dueTime}:00+07:00`);
+  await getDb().insert(schema.tasks).values({
+    title: d.title,
+    type: d.type,
+    customerId: d.accountId,
+    assigneeId,
+    createdBy: user.id,
+    status: "open",
+    dueAt,
+    description: d.description,
+  });
+  await audit({ actorId: user.id, action: "create", entity: "task", entityId: d.title, changes: { due: `${d.dueDate} ${d.dueTime}` } });
+  if (assigneeId !== user.id) {
+    await notify({ userIds: [assigneeId], type: "task.assigned", title: `New task: ${d.title}`, body: `From ${user.name} · due ${d.dueDate} ${d.dueTime}`, link: "/sales/tasks" });
+  }
+  refresh();
+  return { ok: true, message: "Task added." };
 }

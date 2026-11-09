@@ -1,21 +1,28 @@
+import { eq } from "drizzle-orm";
+import { getDb, schema } from "@/db";
 import { verifyUser } from "@/lib/auth";
+import { seesAll } from "@/lib/scope";
 import { getStorage } from "@/lib/storage";
 
 /**
- * Streams a private file to a signed-in user.
- * TODO: add per-entity checks (e.g. sales can only open their own visit photos).
+ * Streams a private file to a signed-in user who may see the record it
+ * belongs to (sales reps: only their own visits).
  */
-export async function GET(
-  _request: Request,
-  ctx: RouteContext<"/api/files/[...key]">,
-) {
-  await verifyUser();
-
+export async function GET(_request: Request, ctx: RouteContext<"/api/files/[...key]">) {
+  const user = await verifyUser();
   const { key } = await ctx.params;
   const objectKey = key.join("/");
-  if (objectKey.includes("..")) {
+  if (objectKey.includes("..") || !/^[\w./-]+$/.test(objectKey)) {
     return Response.json({ error: "Invalid key" }, { status: 400 });
   }
+
+  const [visit] = await getDb()
+    .select({ salesId: schema.visits.salesId })
+    .from(schema.visits)
+    .where(eq(schema.visits.photoKey, objectKey))
+    .limit(1);
+  if (!visit) return Response.json({ error: "Not found" }, { status: 404 });
+  if (!seesAll(user) && visit.salesId !== user.id) return Response.json({ error: "Not found" }, { status: 404 });
 
   const file = await (await getStorage()).read(objectKey);
   if (!file) return Response.json({ error: "Not found" }, { status: 404 });
@@ -25,6 +32,7 @@ export async function GET(
       "Content-Type": file.contentType,
       "Cache-Control": "private, max-age=300",
       "X-Content-Type-Options": "nosniff",
+      "Content-Security-Policy": "default-src 'none'; img-src 'self'; style-src 'unsafe-inline'",
       ...(file.size ? { "Content-Length": String(file.size) } : {}),
     },
   });

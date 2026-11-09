@@ -5,6 +5,9 @@ import { FilterChips } from "@/components/ui/filter-chips";
 import { Stats } from "@/components/ui/stats";
 import { getDb, schema } from "@/db";
 import { getCurrentUser } from "@/lib/auth";
+import { NewDealButton } from "@/components/forms/sales-forms";
+import { canSell } from "@/lib/permissions";
+import { accountOptions, repOptions } from "@/lib/queries/options";
 import { PipelineBoard } from "@/components/board/pipeline-board";
 import { pct, rpk, ymd } from "@/lib/format";
 import { STAGE } from "@/lib/labels";
@@ -57,7 +60,7 @@ export default async function PipelinePage({ searchParams }: PageProps<"/sales/p
 
   return (
     <>
-      <PageHeader href={HREF} />
+      <PageHeader href={HREF} actions={canSell(user) ? <NewDealButton accounts={await accountOptions(user)} reps={await repOptions(user)} /> : undefined} />
       <Stats
         items={[
           { label: "Open pipeline", value: rpk(openValue), hint: `${open.length} open deals` },
