@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { and, asc, desc, eq, gte, inArray } from "drizzle-orm";
 import { PageHeader } from "@/components/page/page-header";
 import { FilterChips } from "@/components/ui/filter-chips";
@@ -7,12 +6,13 @@ import { Empty, Panel } from "@/components/ui/panel";
 import { Pill } from "@/components/ui/pill";
 import { getDb, schema } from "@/db";
 import { getCurrentUser } from "@/lib/auth";
-import { daysBetween, fdate, fday, initials } from "@/lib/format";
-import { TASK_COLUMNS, TASK_STATUS } from "@/lib/labels";
+import { TaskBoard } from "@/components/board/task-board";
+import { fdate, ymd } from "@/lib/format";
 import { now, ownedBy, seesAll } from "@/lib/scope";
 
 export const metadata: Metadata = { title: "Tasks & Follow-up" };
 const HREF = "/sales/tasks";
+const MANAGES = ["admin", "sales_manager"];
 
 export default async function TasksPage({ searchParams }: PageProps<"/sales/tasks">) {
   const user = await getCurrentUser();
@@ -36,6 +36,7 @@ export default async function TasksPage({ searchParams }: PageProps<"/sales/task
     title: t.title,
     type: t.type,
     status: t.status,
+    assigneeId: t.assigneeId,
     due: t.dueAt,
     done: t.completedAt,
     accountId: schema.customers.id,
@@ -80,49 +81,20 @@ export default async function TasksPage({ searchParams }: PageProps<"/sales/task
         )}
       </div>
 
-      <div className="-mx-4 overflow-x-auto px-4 pb-2 md:-mx-6 md:px-6">
-        <div className="grid min-w-[960px] grid-cols-4 gap-3">
-          {TASK_COLUMNS.map((col) => {
-            const cards = open.filter((x) => x.status === col);
-            return (
-              <section key={col} className="flex flex-col gap-2 rounded-xl bg-surface-2/60 p-2">
-                <header className="flex items-baseline justify-between px-1 pt-1">
-                  <h2 className="text-[13px] font-bold">{TASK_STATUS[col].label}</h2>
-                  <span className="text-xs tabular-nums text-muted">{cards.length}</span>
-                </header>
-                {cards.map((c) => {
-                  const days = c.due ? daysBetween(today, c.due) : null;
-                  const late = col !== "done" && days !== null && days < 0;
-                  const dueToday = col !== "done" && days === 0;
-                  return (
-                    <article key={c.id} className="panel flex flex-col gap-1.5 p-3 text-[13px]">
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="text-xs font-semibold text-muted">{c.type ?? "Task"}</span>
-                        <span
-                          title={c.assignee ?? ""}
-                          className="grid size-6 place-items-center rounded-full bg-accent-soft text-[10px] font-bold text-accent"
-                        >
-                          {initials(c.assignee ?? "?")}
-                        </span>
-                      </div>
-                      <p className={`leading-snug ${col === "done" ? "text-muted line-through" : "font-semibold"}`}>{c.title}</p>
-                      {c.account && (
-                        <Link href={`/database/accounts/${c.accountId}`} className="truncate text-xs text-muted hover:text-accent">
-                          {c.account}
-                        </Link>
-                      )}
-                      <p className={`text-xs ${late ? "font-semibold text-bad" : dueToday ? "font-semibold text-warn" : "text-muted"}`}>
-                        {late ? `Overdue · ${fday(c.due)}` : dueToday ? "Due today" : `Due ${fday(c.due)}`}
-                      </p>
-                    </article>
-                  );
-                })}
-                {cards.length === 0 && <p className="px-1 py-4 text-center text-xs text-muted">Nothing here</p>}
-              </section>
-            );
-          })}
-        </div>
-      </div>
+      <TaskBoard
+        today={ymd(today)}
+        tasks={open.map((c) => ({
+          id: c.id,
+          title: c.title,
+          column: c.status,
+          movable: c.assigneeId === user.id || MANAGES.includes(user.role),
+          type: c.type,
+          due: c.due ? ymd(c.due) : null,
+          account: c.account,
+          accountId: c.accountId,
+          assignee: c.assignee,
+        }))}
+      />
 
       <Panel title="Completed in the last 30 days" flush>
         {log.length === 0 ? (
