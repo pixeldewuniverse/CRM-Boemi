@@ -10,7 +10,8 @@ import { canEditItem, loadBoard, loadItem } from "@/lib/boards/access";
 import { labelsOf, type FileValue } from "@/lib/boards/columns";
 import { between, tooClose } from "@/lib/boards/positions";
 import { enrich, loadGroupItems, loadSubitems, parseBoardParams, PAGE_SIZE, type ItemRow } from "@/lib/boards/queries";
-import { logActivity, renumberGroup, wouldCycle } from "@/lib/boards/write";
+import { dependencyHolds } from "@/lib/boards/dependency-rules";
+import { brokenDependencies, logActivity, renumberGroup, wouldCycle } from "@/lib/boards/write";
 import { customerScope } from "@/lib/customers";
 import { ownedBy } from "@/lib/scope";
 import { sniffImage } from "@/lib/sniff-image";
@@ -190,6 +191,10 @@ export async function updateItemField(input: z.input<typeof Update>): Promise<It
     const r = z.object({ start: z.iso.date().nullable(), due: z.iso.date().nullable() }).safeParse(v);
     if (!r.success) return fail("Invalid dates.");
     if (r.data.start && r.data.due && r.data.due < r.data.start) return fail("The end date is before the start date.");
+    if (board.dependencyMode === "strict") {
+      const broken = await brokenDependencies(db, item.id, r.data);
+      if (broken.length) return fail(`Not saved — this board uses strict dependencies: ${broken[0]}.`);
+    }
     [from, to] = [{ start: item.startOn, due: item.dueOn }, r.data];
     patch.startOn = r.data.start;
     patch.dueOn = r.data.due;
@@ -416,6 +421,10 @@ export async function addDependency(input: z.input<typeof Dep>): Promise<ItemRes
   const [pred] = await db.select({ boardId: it.boardId, name: it.name }).from(it).where(eq(it.id, p.data.predecessorId));
   if (!pred || pred.boardId !== loaded.board.id) return fail("Pick an item on the same board.");
   if (await wouldCycle(db, p.data.predecessorId, p.data.successorId)) return fail("That would create a loop: this item already leads to the one you picked.");
+  if (loaded.board.dependencyMode === "strict") {
+    const [pd] = await db.select({ start: it.startOn, due: it.dueOn }).from(it).where(eq(it.id, p.data.predecessorId));
+    if (dependencyHolds(p.data.type, p.data.lagDays, pd, { start: loaded.item.startOn, due: loaded.item.dueOn }) === false) return fail("The current dates already break this dependency — move the dates first (strict board).");
+  }
   await db.transaction(async (tx) => {
     await tx
       .insert(schema.boardItemDependencies)

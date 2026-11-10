@@ -83,6 +83,7 @@ export function itemFilters(boardId: string, p: BoardParams): SQL {
 /** ORDER BY for the sort column (system field or custom value). */
 export function itemOrder(p: BoardParams, columns: { key: string; type: string }[]): SQL[] {
   const dir = p.dir === "desc" ? desc : asc;
+  if (p.sort === "timeline_start") return [sql`coalesce(${it.startOn}, ${it.dueOn}) asc nulls last`, asc(it.position)];
   const col = columns.find((c) => c.key === p.sort);
   if (!col) return [asc(it.position)];
   const custom = (cast: string) => sql.raw(`(values->>'${col.key.replace(/'/g, "")}')${cast}`);

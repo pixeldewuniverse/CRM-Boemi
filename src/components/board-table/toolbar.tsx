@@ -27,7 +27,7 @@ export function Toolbar({
   manage: boolean;
   canAdd: boolean;
   onNewItem: () => void;
-  view?: "table" | "kanban";
+  view?: "table" | "kanban" | "timeline";
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -151,6 +151,7 @@ export function Toolbar({
           <option value="person">Group by: person</option>
         </select>
       ) : (
+        view === "kanban" &&
         statusCols.length > 1 && (
           <select aria-label="Lanes" value={search.lanes ?? "status"} onChange={(e) => go({ lanes: e.target.value === "status" ? undefined : e.target.value })} className="input w-auto py-1.5">
             {statusCols.map((c) => (

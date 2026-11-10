@@ -2,6 +2,7 @@ import "server-only";
 import { and, asc, eq, isNull, sql } from "drizzle-orm";
 import { getDb, schema } from "@/db";
 import { DEFAULT_COLUMNS } from "./columns";
+import { DEP_TYPE_LABEL, dependencyHolds, type Span } from "./dependency-rules";
 
 type Db = ReturnType<typeof getDb>;
 type Tx = Parameters<Parameters<Db["transaction"]>[0]>[0];
@@ -46,4 +47,21 @@ export async function wouldCycle(db: DbOrTx, predecessorId: string, successorId:
     )
     select exists (select 1 from downstream where id = ${predecessorId}) as hit`);
   return Boolean((rows as unknown as { hit: boolean }[])[0]?.hit);
+}
+
+/**
+ * Strict boards: which dependencies would the new dates of `itemId` break?
+ * Returns readable reasons (empty = fine).
+ */
+export async function brokenDependencies(db: DbOrTx, itemId: string, span: Span): Promise<string[]> {
+  const it = schema.boardItems;
+  const d = schema.boardItemDependencies;
+  const [preds, succs] = await Promise.all([
+    db.select({ name: it.name, start: it.startOn, due: it.dueOn, type: d.type, lag: d.lagDays }).from(d).innerJoin(it, eq(it.id, d.predecessorId)).where(eq(d.successorId, itemId)),
+    db.select({ name: it.name, start: it.startOn, due: it.dueOn, type: d.type, lag: d.lagDays }).from(d).innerJoin(it, eq(it.id, d.successorId)).where(eq(d.predecessorId, itemId)),
+  ]);
+  const out: string[] = [];
+  for (const p of preds) if (dependencyHolds(p.type, p.lag, { start: p.start, due: p.due }, span) === false) out.push(`it must follow “${p.name}” (${DEP_TYPE_LABEL[p.type]}${p.lag ? `, ${p.lag > 0 ? "+" : ""}${p.lag}d` : ""})`);
+  for (const s of succs) if (dependencyHolds(s.type, s.lag, span, { start: s.start, due: s.due }) === false) out.push(`“${s.name}” must follow it (${DEP_TYPE_LABEL[s.type]}${s.lag ? `, ${s.lag > 0 ? "+" : ""}${s.lag}d` : ""})`);
+  return out;
 }

@@ -19,7 +19,7 @@ import { pendingRequestFor } from "@/lib/approvals";
 import { now } from "@/lib/scope";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const SOON = ["Timeline", "Calendar", "Workload", "Dashboard"];
+const SOON = ["Calendar", "Workload", "Dashboard"];
 
 export async function generateMetadata({ params }: PageProps<"/projects/[boardId]">): Promise<Metadata> {
   const [{ boardId }, user] = await Promise.all([params, getCurrentUser()]);
@@ -36,7 +36,9 @@ export default async function BoardPage({ params, searchParams }: PageProps<"/pr
   if (!found) notFound();
   const { board, access } = found;
   const kanban = sp.view === "kanban";
-  const p = { ...parseBoardParams(sp), ...(kanban ? { groupBy: undefined } : {}) };
+  const timeline = sp.view === "timeline";
+  const view = kanban ? "kanban" : timeline ? "timeline" : "table";
+  const p = { ...parseBoardParams(sp), ...(view !== "table" ? { groupBy: undefined } : {}) };
   // Filters carry over between Table and Kanban; view-specific params don't.
   const keepFilters = Object.fromEntries(["q", "person", "status", "group", "from", "to", "sort", "dir"].filter((k) => typeof sp[k] === "string" && sp[k]).map((k) => [k, sp[k] as string]));
   const search = Object.fromEntries(Object.entries(sp).filter((e): e is [string, string] => typeof e[1] === "string" && e[1] !== ""));
@@ -74,7 +76,16 @@ export default async function BoardPage({ params, searchParams }: PageProps<"/pr
 
   let groups: GroupData[];
   let truncated = false;
-  if (kanban) {
+  if (timeline) {
+    // Gantt: every matching item, in the board's groups (sorted by start date unless a sort is chosen).
+    const res = await loadAllMatching(boardId, p.sort ? p : { ...p, sort: "timeline_start" }, colKeys);
+    truncated = res.truncated;
+    groups = groupRows
+      .filter((g) => !p.group || g.id === p.group)
+      .map((g) => ({ id: g.id, name: g.name, color: g.color, collapsed: g.collapsed, total: 0, summary: null, items: res.items.filter((i) => i.groupId === g.id) }))
+      .map((g) => ({ ...g, total: g.items.length }))
+      .filter((g) => !filtered || g.items.length);
+  } else if (kanban) {
     const res = await loadAllMatching(boardId, p, colKeys);
     truncated = res.truncated;
     groups = [{ id: "v-all", name: "All items", color: "c1", collapsed: false, total: res.items.length, summary: null, items: res.items }];
@@ -164,8 +175,9 @@ export default async function BoardPage({ params, searchParams }: PageProps<"/pr
 
       <nav aria-label="Board views" className="flex gap-1 overflow-x-auto border-b border-line">
         {[
-          { label: "Main Table", on: !kanban, query: { ...keepFilters } },
+          { label: "Main Table", on: view === "table", query: { ...keepFilters } },
           { label: "Kanban", on: kanban, query: { ...keepFilters, view: "kanban" } },
+          { label: "Timeline", on: timeline, query: { ...keepFilters, view: "timeline" } },
         ].map((v) => (
           <Link
             key={v.label}
@@ -196,10 +208,11 @@ export default async function BoardPage({ params, searchParams }: PageProps<"/pr
         userId={user.id}
         search={search}
         sorted={Boolean(p.sort && columns.some((c) => c.key === p.sort))}
-        virtual={!kanban && Boolean(p.groupBy)}
+        virtual={view === "table" && Boolean(p.groupBy)}
         truncated={truncated}
         realGroups={groupRows.map((g) => ({ id: g.id, name: g.name, color: g.color }))}
-        view={kanban ? "kanban" : "table"}
+        view={view}
+        dependencyMode={board.dependencyMode}
         archived={archived}
         today={today}
       />

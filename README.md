@@ -161,10 +161,11 @@ Menu baru **Projects → Boards & Projects** (`/projects`): board per *workspace
 - **Tabel** (`/projects/[boardId]`, `src/components/board-table/`): grup berwarna (rename, collapse, warna, urutan, hapus + pindahkan item), header kolom per grup, ringkasan per grup (status battery, jumlah angka, rentang timeline, jumlah orang, total estimasi), edit per sel dengan update optimistis, subitem (1 level), drag baris antar posisi/grup (@dnd-kit, juga keyboard), pilih banyak → pindah grup / status / orang / duplikat / arsip / hapus (hapus hanya owner), panel item (semua field, subitem, activity), mobile = kartu per grup.
 - **Kolom**: system (`name`, `status`, `people`, `timeline`, `priority`, `estimate_hours`, `dependency`, `link_account`, `link_deal` — tidak bisa dihapus, boleh rename/hide) + custom (text, long text, number dengan prefix/unit mis. Rp, status, dropdown multi, date, checkbox, people, link, files ≤ 3,5 MB di `boards/<boardId>/…`). Label status punya warna + **kategori** (not started / working / stuck / done); laporan, progress dan otomasi memakai kategori. Status wajib punya minimal satu label *done*.
 - **Kanban** (`/projects/[boardId]?view=kanban`, tab di atas tabel): satu lajur per label status (pilih kolom status lain lewat *Lanes* bila board punya lebih dari satu), kartu berisi grup, prioritas, subitem, orang dan due date. Drag kartu = ubah status (aturan edit sama dengan tabel, termasuk *edit own only*), klik kartu = panel item. Filter/cari/sort ikut pindah antara Table dan Kanban. Maks 500 item.
+- **Timeline / Gantt** (`?view=timeline`, CSS grid + SVG tanpa library): bar per item berwarna status, ◆ milestone, garis hari ini, zoom hari/minggu/bulan, panah dependency (merah putus-putus = urutan dilanggar). Drag bar = geser tanggal, drag tepi = ubah mulai/selesai, keyboard ←/→ geser sehari, Shift+←/→ ubah tanggal selesai; klik bar = panel item. Mode dependency board: **flexible** = tetap disimpan + toast peringatan, **strict** = server menolak perubahan tanggal yang melanggar (juga saat menambah dependency), **none** = tanpa cek. Aturan FS/SS/FF/SF + lag di `src/lib/boards/dependency-rules.ts` (dipakai server & browser). Item tanpa tanggal dihitung dan bisa dibuka dari daftar kiri.
 - **Toolbar**: cari, filter orang/status/grup/tanggal, sort, group-by (status/prioritas/orang = grup virtual, maks 500 item, tanpa drag), kolom (owner: show/hide + urutan untuk semua; user lain: sembunyikan untuk diri sendiri lewat URL). Semua tersimpan di URL.
 - **Skala**: 50 item per grup + *Show more*; ringkasan dihitung di database atas semua item yang cocok. Posisi pecahan (`double`) + renumber otomatis.
 - **Konflik**: last-write-wins; bila orang lain mengubah item setelah halaman dimuat, perubahan tetap tersimpan dan muncul toast "X also changed …".
-- **Dependency** FS/SS/FF/SF + lag hari; loop ditolak (CTE rekursif). Mode strict/flexible disimpan di board (dipakai Timeline di 5b).
+- **Dependency** FS/SS/FF/SF + lag hari; loop ditolak (CTE rekursif). Mode strict/flexible/none diatur di *Edit details* (lihat Timeline).
 - **Approval project**: *Submit for approval* memakai Approval Engine (tipe `project`, nominal = budget). Tidak ada workflow yang cocok → langsung Active. Seed: project ≥ Rp 50 jt → Executive.
 
 **Akses** (`src/lib/boards/access.ts`, dipakai di setiap action & query):
@@ -266,7 +267,7 @@ Semua job butuh header `Authorization: Bearer $CRON_SECRET`. Vercel Cron mengiri
 
 ## Belum dikerjakan (berikutnya)
 
-- Projects berikutnya: view Timeline/Gantt, Calendar, Workload, Dashboard, My Work, automasi; approval project_budget & purchase_request
+- Projects berikutnya: view Calendar, Workload, Dashboard, My Work, automasi; approval project_budget & purchase_request
 - PDF untuk sales order / invoice (saat ini hanya quotation)
 - Scoring kualifikasi (rule-based dari `qualification_criteria` + Gemini/Vertex AI untuk catatan kunjungan)
 - Rate limit login, reset password, login Google Workspace

@@ -24,6 +24,7 @@ import { Cell, PeoplePicker, type CellCtx } from "./cells";
 import { AddColumn, ColumnMenu, LabelEditor } from "./columns-ui";
 import { ItemPanel } from "./item-panel";
 import { KanbanView } from "./kanban-view";
+import { TimelineView } from "./timeline-view";
 import { Toolbar } from "./toolbar";
 import { Faces, Popover, rangeLabel, shortDate, toast } from "./ui";
 import type { BoardAccessProps, Column, GroupData, GroupSummary, ItemRow, Opt, Person } from "./types";
@@ -46,7 +47,8 @@ export type BoardTableProps = {
   truncated: boolean;
   realGroups: { id: string; name: string; color: string }[];
   /** Table (default) or Kanban; Kanban gets every matching item in one list. */
-  view?: "table" | "kanban";
+  view?: "table" | "kanban" | "timeline";
+  dependencyMode?: "strict" | "flexible" | "none";
   archived: boolean;
   today: string;
 };
@@ -149,6 +151,7 @@ export function BoardTable(props: BoardTableProps) {
   const template = `${HANDLE}px ${visible.map((c) => `${c.width}px`).join(" ")} 44px`;
   const dragOff = props.sorted || props.virtual || !access.edit || props.archived;
   const kanban = props.view === "kanban";
+  const timeline = props.view === "timeline";
   const canAdd = access.edit && !props.archived && !props.virtual;
 
   const allItems = () => [...groups.flatMap((g) => g.items), ...Object.values(subs).flat()];
@@ -642,17 +645,19 @@ export function BoardTable(props: BoardTableProps) {
         people={props.people}
         groups={props.realGroups}
         manage={ctx.manage}
-        view={kanban ? "kanban" : "table"}
+        view={props.view ?? "table"}
         canAdd={canAdd && Boolean(firstGroup)}
         onNewItem={async () => {
           const item = await addItem(firstGroup.id, "New item");
           if (item) setOpenId(item.id);
         }}
       />
-      {props.sorted && !kanban && <p className="text-[13px] text-muted">Sorted — drag and drop is off until you go back to manual order.</p>}
+      {props.sorted && !kanban && !timeline && <p className="text-[13px] text-muted">Sorted — drag and drop is off until you go back to manual order.</p>}
       {props.truncated && <p className="text-[13px] text-warn">Showing the first 500 matching items. Narrow the filters to see the rest.</p>}
 
-      {kanban ? (
+      {timeline ? (
+        <TimelineView groups={groups} ctx={ctx} statusColumn={cols.find((c) => c.key === "status")} mode={props.dependencyMode ?? "flexible"} canEditBoard={access.edit && !props.archived} />
+      ) : kanban ? (
         (() => {
           const lanesBy = cols.find((c) => c.key === props.search.lanes && c.type === "status") ?? cols.find((c) => c.key === "status");
           return lanesBy ? (
@@ -677,7 +682,7 @@ export function BoardTable(props: BoardTableProps) {
         </>
       )}
 
-      {ctx.manage && !props.virtual && !kanban && (
+      {ctx.manage && !props.virtual && !kanban && !timeline && (
         <button
           type="button"
           className="btn self-start"
