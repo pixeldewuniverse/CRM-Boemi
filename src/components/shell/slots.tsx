@@ -2,16 +2,16 @@ import Link from "next/link";
 import { cache } from "react";
 import { and, count, eq, inArray, isNull, lt } from "drizzle-orm";
 import { connection } from "next/server";
+import { redirect } from "next/navigation";
 import { logout } from "@/app/actions/auth";
 import { Avatar } from "@/components/avatar";
 import { Icon } from "@/components/icon";
 import { UserMenu } from "./user-menu";
 import { getDb, schema } from "@/db";
+import { countPendingFor } from "@/lib/approvals";
 import { getCurrentUser } from "@/lib/auth";
 import { NAV } from "@/lib/nav";
 import { ROLE_LABEL } from "@/lib/roles";
-
-const APPROVERS = ["admin", "sales_manager", "finance"] as const;
 
 /** Sidebar counters, computed once per request. */
 const getCounts = cache(async (): Promise<Record<string, number>> => {
@@ -19,7 +19,7 @@ const getCounts = cache(async (): Promise<Record<string, number>> => {
   await connection(); // "overdue" depends on the current time
   const db = getDb();
 
-  const [[overdue], [pendingFees], [unread]] = await Promise.all([
+  const [[overdue], approvals, [unread]] = await Promise.all([
     db
       .select({ n: count() })
       .from(schema.tasks)
@@ -30,16 +30,14 @@ const getCounts = cache(async (): Promise<Record<string, number>> => {
           lt(schema.tasks.dueAt, new Date()),
         ),
       ),
-    (APPROVERS as readonly string[]).includes(user.role)
-      ? db.select({ n: count() }).from(schema.visitFees).where(eq(schema.visitFees.status, "pending"))
-      : Promise.resolve([{ n: 0 }]),
+    countPendingFor(user),
     db
       .select({ n: count() })
       .from(schema.notifications)
       .where(and(eq(schema.notifications.userId, user.id), isNull(schema.notifications.readAt))),
   ]);
 
-  return { tasks: overdue.n, visits: pendingFees.n, notifications: unread.n };
+  return { tasks: overdue.n, approvals, notifications: unread.n };
 });
 
 function Pill({ n }: { n: number }) {
@@ -101,4 +99,11 @@ export async function SideFooter() {
       </form>
     </>
   );
+}
+
+/** Temporary password (new account / admin reset): nothing else until it's changed. */
+export async function PasswordGate() {
+  const user = await getCurrentUser();
+  if (user.mustChangePassword) redirect("/change-password");
+  return null;
 }

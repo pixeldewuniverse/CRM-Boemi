@@ -27,7 +27,7 @@ export function Panel({
           {actions && <div className="ml-auto flex flex-wrap items-center gap-2">{actions}</div>}
         </header>
       )}
-      <div className={flush ? "overflow-x-auto" : "p-4"}>{children}</div>
+      <div className={flush ? "relative overflow-x-auto" : "p-4"}>{children}</div>
     </section>
   );
 }

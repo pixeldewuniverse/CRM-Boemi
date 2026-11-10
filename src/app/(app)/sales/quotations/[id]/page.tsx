@@ -12,7 +12,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { daysBetween, fdate, fdatetime, rp } from "@/lib/format";
 import { QUOTE_APPROVAL, QUOTE_STATUS } from "@/lib/labels";
 import { PRICE_TIERS, type PriceTier } from "@/lib/pricing";
-import { canApproveDiscounts } from "@/lib/permissions";
+import { canDecideStep, pendingRequestFor } from "@/lib/approvals";
 import { docFormOptions } from "@/lib/queries/docs";
 import { actionLabel, recordHistory } from "@/lib/queries/history";
 import { loadQuotation } from "@/lib/records";
@@ -39,7 +39,7 @@ export default async function QuotationPage({ params }: PageProps<"/sales/quotat
   const db = getDb();
   const quote = q.quote;
   const people = [quote.ownerId, quote.approvedBy].filter((x): x is string => Boolean(x));
-  const [items, users, deal, order, history, form, today] = await Promise.all([
+  const [items, users, deal, order, history, form, today, approvalReq] = await Promise.all([
     db
       .select({ id: schema.quotationItems.id, productId: schema.quotationItems.productId, quantity: schema.quotationItems.quantity, unitPrice: schema.quotationItems.unitPrice, subtotal: schema.quotationItems.subtotal, sku: schema.products.sku, name: schema.products.name, variant: schema.products.variant, unit: schema.products.unit })
       .from(schema.quotationItems)
@@ -52,7 +52,9 @@ export default async function QuotationPage({ params }: PageProps<"/sales/quotat
     recordHistory("quotation", quote.quoteNo),
     q.editable && quote.status === "draft" ? docFormOptions(user, quote.customerId) : null,
     now(),
+    quote.approval === "pending" ? pendingRequestFor("quotation_discount", id) : null,
   ]);
+  const canReview = Boolean(approvalReq && canDecideStep(user, approvalReq.req.requesterId, approvalReq.step?.approverIds ?? []));
   const name = (uid: string | null) => users.find((u) => u.id === uid)?.name ?? "—";
   const discount = Math.round((quote.subtotal * quote.discountPct) / 100);
   const left = quote.validUntil ? daysBetween(today, quote.validUntil) : null;
@@ -95,7 +97,7 @@ export default async function QuotationPage({ params }: PageProps<"/sales/quotat
               status={quote.status}
               approval={quote.approval}
               editable={q.editable}
-              canReview={canApproveDiscounts(user)}
+              canReview={canReview}
               hasOrder={Boolean(order)}
             />
           </>
@@ -113,7 +115,7 @@ export default async function QuotationPage({ params }: PageProps<"/sales/quotat
           </p>
           <p className="text-muted">
             {quote.approval === "pending"
-              ? "A sales manager must approve this discount before the quotation can be sent."
+              ? `Waiting for ${approvalReq?.step?.label ?? "an approver"}${approvalReq ? ` (step ${approvalReq.req.currentStep})` : ""} before the quotation can be sent.`
               : `${quote.approval === "approved" ? "Approved" : "Rejected"} by ${name(quote.approvedBy)} on ${fdatetime(quote.approvedAt)}.`}
             {quote.approvalNote && ` “${quote.approvalNote}”`}
             {quote.approval === "rejected" && " Lower the discount and save to ask again."}

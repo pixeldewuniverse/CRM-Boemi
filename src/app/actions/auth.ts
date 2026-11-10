@@ -34,6 +34,7 @@ export async function login(_prev: LoginState, formData: FormData): Promise<Logi
       passwordHash: schema.users.passwordHash,
       active: schema.users.active,
       sessionVersion: schema.users.sessionVersion,
+      mustChangePassword: schema.users.mustChangePassword,
     })
     .from(schema.users)
     .where(sql`lower(${schema.users.email}) = ${email.toLowerCase()}`)
@@ -55,6 +56,8 @@ export async function login(_prev: LoginState, formData: FormData): Promise<Logi
     .where(eq(schema.users.id, user.id));
   await audit({ actorId: user.id, action: "login", entity: "user", entityId: user.id });
 
+  // Temporary password (new account or reset by an admin) → choose your own first.
+  if (user.mustChangePassword) redirect("/change-password");
   // Only allow internal redirects.
   redirect(next && next.startsWith("/") && !next.startsWith("//") ? next : "/dashboard");
 }

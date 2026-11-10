@@ -26,6 +26,7 @@ export function FormDialog({
   danger = false,
   disabled = false,
   dialogId,
+  stayOpen = false,
 }: {
   trigger: ReactNode;
   triggerClassName?: string;
@@ -42,6 +43,8 @@ export function FormDialog({
   disabled?: boolean;
   /** Lets other buttons open this dialog (e.g. "+" on a calendar day). */
   dialogId?: string;
+  /** Keep the dialog open after success and show the message (e.g. a one-time password). */
+  stayOpen?: boolean;
 }) {
   const width = { md: "w-[min(94vw,30rem)]", wide: "w-[min(94vw,40rem)]", xl: "w-[min(96vw,56rem)]" }[size ?? (wide ? "wide" : "md")];
   const twoCols = wide || size === "wide" || size === "xl";
@@ -50,7 +53,7 @@ export function FormDialog({
   const [state, formAction, pending] = useActionState<FormState, FormData>(async (prev, fd) => {
     const res = await action(prev, fd);
     if (res.ok) {
-      dialog.current?.close();
+      if (!stayOpen) dialog.current?.close();
       setFormKey((k) => k + 1);
     }
     return res;
@@ -87,6 +90,11 @@ export function FormDialog({
             {!state.ok && state.error && (
               <p role="alert" className="rounded-lg bg-bad-soft px-3 py-2 text-[13px] text-bad">
                 {state.error}
+              </p>
+            )}
+            {stayOpen && state.ok && state.message && (
+              <p role="status" className="select-all break-words rounded-lg bg-ok-soft px-3 py-2 text-[13px] text-ok">
+                {state.message}
               </p>
             )}
             <footer className="flex justify-end gap-2">

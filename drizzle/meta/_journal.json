@@ -57,6 +57,13 @@
       "when": 1794295247924,
       "tag": "0007_search_trgm",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1794297731399,
+      "tag": "0008_rbac_departments_approvals",
+      "breakpoints": true
     }
   ]
 }

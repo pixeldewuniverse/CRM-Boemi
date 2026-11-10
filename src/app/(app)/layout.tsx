@@ -1,9 +1,9 @@
 import { Suspense } from "react";
 import { AppShell } from "@/components/shell/app-shell";
-import { CategoryCount, ItemCount, SideFooter, TopRight } from "@/components/shell/slots";
+import { CategoryCount, ItemCount, PasswordGate, SideFooter, TopRight } from "@/components/shell/slots";
 import { NAV } from "@/lib/nav";
 
-const COUNTED_ITEMS = ["tasks", "visits"];
+const COUNTED_ITEMS = ["tasks", "approvals"];
 
 /**
  * The shell (menus) is static and renders instantly; anything that needs
@@ -42,6 +42,9 @@ export default function AppLayout({ children }: LayoutProps<"/">) {
         </Suspense>
       }
     >
+      <Suspense fallback={null}>
+        <PasswordGate />
+      </Suspense>
       {children}
     </AppShell>
   );

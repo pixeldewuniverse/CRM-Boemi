@@ -162,14 +162,30 @@ export const users = pgTable(
     joinedOn: date("joined_on"),
     active: boolean("active").notNull().default(true),
     lastLoginAt: timestamp("last_login_at", { withTimezone: true }),
+    departmentId: uuid("department_id").references((): AnyPgColumn => departments.id, { onDelete: "set null" }),
+    mustChangePassword: boolean("must_change_password").notNull().default(false),
+    // "password" now; "google" once Google Workspace sign-in is on (password_hash stays null).
+    authProvider: text("auth_provider").notNull().default("password"),
+    googleSub: text("google_sub"),
     avatarKey: text("avatar_key"), // profile photo, object key in storage
     // Bumped on password change: sessions signed with an older version are signed out.
     sessionVersion: integer("session_version").notNull().default(0),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
-  (t) => [uniqueIndex("users_email_uq").on(sql`lower(${t.email})`)],
+  (t) => [uniqueIndex("users_email_uq").on(sql`lower(${t.email})`), index("users_department_idx").on(t.departmentId), index("users_manager_idx").on(t.managerId)],
 );
+
+/** Departments & teams. A Department Head / Manager sees the data of everyone in their department. */
+export const departments = pgTable("departments", {
+  id: id(),
+  name: text("name").notNull(),
+  code: text("code").notNull().unique(),
+  headUserId: uuid("head_user_id").references((): AnyPgColumn => users.id, { onDelete: "set null" }),
+  parentId: uuid("parent_id").references((): AnyPgColumn => departments.id, { onDelete: "set null" }),
+  createdAt: createdAt(),
+  updatedAt: updatedAt(),
+});
 
 /* ───────────────── Customers, contacts, leads ───────────────── */
 
@@ -681,6 +697,89 @@ export const documentCounters = pgTable(
     lastSeq: integer("last_seq").notNull().default(0),
   },
   (t) => [primaryKey({ columns: [t.docType, t.period] })],
+);
+
+/* ─────────────────────── Approval engine ─────────────────────── */
+
+export const approvalRequestStatusEnum = pgEnum("approval_request_status", ["pending", "approved", "rejected", "cancelled"]);
+export const approvalStepStatusEnum = pgEnum("approval_step_status", ["waiting", "pending", "approved", "rejected", "skipped"]);
+
+/** Which steps a request of one type goes through (first active match by amount range, then priority). */
+export const approvalFlows = pgTable(
+  "approval_flows",
+  {
+    id: id(),
+    entityType: text("entity_type").notNull(), // visit_fee | quotation_discount | project | project_budget | purchase_request
+    name: text("name").notNull(),
+    active: boolean("active").notNull().default(true),
+    minAmount: bigint("min_amount", { mode: "number" }),
+    maxAmount: bigint("max_amount", { mode: "number" }),
+    priority: integer("priority").notNull().default(100),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [index("approval_flows_entity_idx").on(t.entityType, t.active)],
+);
+
+export const approvalFlowSteps = pgTable(
+  "approval_flow_steps",
+  {
+    id: id(),
+    flowId: uuid("flow_id")
+      .notNull()
+      .references(() => approvalFlows.id, { onDelete: "cascade" }),
+    position: integer("position").notNull(),
+    // role (any user with one of `roles`) | user | direct_manager | department_head
+    approverType: text("approver_type").notNull(),
+    roles: text("roles").array().notNull().default(sql`'{}'::text[]`),
+    userId: uuid("user_id").references(() => users.id, { onDelete: "set null" }),
+    label: text("label"),
+  },
+  (t) => [index("approval_flow_steps_flow_idx").on(t.flowId, t.position)],
+);
+
+export const approvalRequests = pgTable(
+  "approval_requests",
+  {
+    id: id(),
+    flowId: uuid("flow_id").references(() => approvalFlows.id, { onDelete: "set null" }),
+    entityType: text("entity_type").notNull(),
+    entityId: uuid("entity_id").notNull(),
+    amount: bigint("amount", { mode: "number" }).notNull().default(0),
+    title: text("title").notNull(),
+    link: text("link"),
+    requesterId: uuid("requester_id")
+      .notNull()
+      .references(() => users.id),
+    status: approvalRequestStatusEnum("status").notNull().default("pending"),
+    currentStep: integer("current_step").notNull().default(1),
+    createdAt: createdAt(),
+    decidedAt: timestamp("decided_at", { withTimezone: true }),
+  },
+  (t) => [index("approval_requests_entity_idx").on(t.entityType, t.entityId), index("approval_requests_status_idx").on(t.status)],
+);
+
+/** One row per step of a request; steps are copied from the flow when the request is made. */
+export const approvalActions = pgTable(
+  "approval_actions",
+  {
+    id: id(),
+    requestId: uuid("request_id")
+      .notNull()
+      .references(() => approvalRequests.id, { onDelete: "cascade" }),
+    position: integer("position").notNull(),
+    label: text("label").notNull(),
+    approverType: text("approver_type").notNull(),
+    roles: text("roles").array().notNull().default(sql`'{}'::text[]`),
+    userId: uuid("user_id").references(() => users.id, { onDelete: "set null" }),
+    // Resolved when the step becomes current.
+    approverIds: uuid("approver_ids").array().notNull().default(sql`'{}'::uuid[]`),
+    status: approvalStepStatusEnum("status").notNull().default("waiting"),
+    decidedBy: uuid("decided_by").references(() => users.id),
+    note: text("note"),
+    decidedAt: timestamp("decided_at", { withTimezone: true }),
+  },
+  (t) => [index("approval_actions_request_idx").on(t.requestId, t.position)],
 );
 
 /* ─────────────────────────── KPI ─────────────────────────── */

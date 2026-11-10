@@ -13,8 +13,9 @@ import { STAGE } from "@/lib/labels";
 import { parseLines, priceLines } from "@/lib/lines";
 import { notify } from "@/lib/notifications";
 import { managersOf } from "@/lib/notifications/recipients";
+import { cancelApprovals, decide, pendingRequestFor, submitForApproval } from "@/lib/approvals";
 import { nextDocumentNumber } from "@/lib/numbering";
-import { canApproveDiscounts, canSell, discountLimitFor, isManager } from "@/lib/permissions";
+import { canSell, discountLimitFor, isManager } from "@/lib/permissions";
 import { loadAccount, loadQuotation } from "@/lib/records";
 import { getSetting } from "@/lib/settings";
 
@@ -64,14 +65,20 @@ async function prepare(user: CurrentUser, fd: FormData, keepProducts: Set<string
   return { d, account, priced, settings, issuedOn, validUntil, needsApproval: d.discountPct > limit, limit } as const;
 }
 
-async function askApproval(quoteNo: string, ownerId: string, actor: CurrentUser, id: string, account: string, discount: number, limit: number) {
-  await notify({
-    userIds: await managersOf(ownerId, [actor.id]),
-    type: "quote.approval",
-    title: `${quoteNo}: ${discount}% discount needs approval`,
-    body: `${account} · requested by ${actor.name} · limit ${limit}%`,
+/** Discount above the role's limit → approval engine (Settings → Approval Workflows). */
+async function askApproval(quoteNo: string, ownerId: string, id: string, account: string, discount: number) {
+  const res = await submitForApproval({
+    entityType: "quotation_discount",
+    entityId: id,
+    amount: Math.ceil(discount),
+    title: `${quoteNo} · ${discount}% discount · ${account}`,
     link: `/sales/quotations/${id}`,
+    requesterId: ownerId,
   });
+  // No active flow for this discount → nothing to approve.
+  if (res.status === "approved") {
+    await getDb().update(schema.quotations).set({ approval: "not_required" }).where(eq(schema.quotations.id, id));
+  }
 }
 
 export async function createQuotation(_prev: FormState, fd: FormData): Promise<FormState> {
@@ -115,7 +122,7 @@ export async function createQuotation(_prev: FormState, fd: FormData): Promise<F
     entityId: created.quoteNo,
     changes: { account: account.name, total: priced.total, discountPct: d.discountPct },
   });
-  if (p.needsApproval) await askApproval(created.quoteNo, ownerId, user, created.id, account.name, d.discountPct, p.limit);
+  if (p.needsApproval) await askApproval(created.quoteNo, ownerId, created.id, account.name, d.discountPct);
   refresh();
   redirect(`/sales/quotations/${created.id}`);
 }
@@ -166,8 +173,11 @@ export async function updateQuotation(_prev: FormState, fd: FormData): Promise<F
     entityId: current.quote.quoteNo,
     changes: { total: [current.quote.total, priced.total], discountPct: [current.quote.discountPct, d.discountPct] },
   });
-  if (approval === "pending" && current.quote.approval !== "pending") {
-    await askApproval(current.quote.quoteNo, current.quote.ownerId ?? user.id, user, id.data, current.account, d.discountPct, p.limit);
+  if (approval === "pending") {
+    // (Re)submit: the discount may have changed since the last request.
+    await askApproval(current.quote.quoteNo, current.quote.ownerId ?? user.id, id.data, current.account, d.discountPct);
+  } else if (current.quote.approval === "pending") {
+    await cancelApprovals("quotation_discount", id.data);
   }
   refresh();
   return { ok: true, message: "Quotation saved." };
@@ -180,6 +190,7 @@ export async function deleteQuotation(_prev: FormState, fd: FormData): Promise<F
   const q = await loadQuotation(user, id.data);
   if (!q?.editable) return { ok: false, error: "Only the owner or a manager can delete this quotation." };
   if (q.quote.status !== "draft") return { ok: false, error: "Only drafts can be deleted. Mark it rejected instead." };
+  await cancelApprovals("quotation_discount", id.data);
   await getDb().delete(schema.quotations).where(eq(schema.quotations.id, id.data));
   await audit({ actorId: user.id, action: "delete", entity: "quotation", entityId: q.quote.quoteNo });
   refresh();
@@ -235,32 +246,19 @@ export async function setQuotationStatus(_prev: FormState, fd: FormData): Promis
 
 const Review = z.object({ id: z.uuid(), decision: z.enum(["approved", "rejected"]), note: z.string().max(500).optional() });
 
-/** Manager decides on a discount above the sales limit. */
+/** Approver decides on a discount above the sales limit (current step of its approval request). */
 export async function reviewDiscount(_prev: FormState, fd: FormData): Promise<FormState> {
   const user = await verifyUser();
-  if (!canApproveDiscounts(user)) return { ok: false, error: "Only sales managers and admins can approve discounts." };
   const parsed = Review.safeParse(formObject(fd));
   if (!parsed.success) return { ok: false, error: "Invalid request." };
   const { id, decision, note } = parsed.data;
   if (decision === "rejected" && !note) return { ok: false, error: "Please check the highlighted fields.", fieldErrors: { note: "Tell the rep why." } };
-  const q = await loadQuotation(user, id);
-  if (!q) return { ok: false, error: "Quotation not found." };
-  if (q.quote.approval !== "pending") return { ok: false, error: "This discount is not waiting for approval." };
-  await getDb()
-    .update(schema.quotations)
-    .set({ approval: decision, approvalNote: note ?? null, approvedBy: user.id, approvedAt: new Date() })
-    .where(eq(schema.quotations.id, id));
-  await audit({ actorId: user.id, action: decision === "approved" ? "approve" : "reject", entity: "quotation_discount", entityId: q.quote.quoteNo, changes: { discountPct: q.quote.discountPct, note } });
-  if (q.quote.ownerId && q.quote.ownerId !== user.id) {
-    await notify({
-      userIds: [q.quote.ownerId],
-      type: "quote.decided",
-      title: `${q.quote.quoteNo}: ${q.quote.discountPct}% discount ${decision}`,
-      body: note ? `${user.name}: ${note}` : `By ${user.name}.`,
-      link: `/sales/quotations/${id}`,
-    });
-  }
+  const pending = await pendingRequestFor("quotation_discount", id);
+  if (!pending) return { ok: false, error: "This discount is not waiting for approval." };
+  const res = await decide(user, pending.req.id, decision, note);
+  if (!res.ok) return { ok: false, error: res.error };
   refresh();
+  if (res.final === null) return { ok: true, message: "Approved — sent to the next approver." };
   return { ok: true, message: decision === "approved" ? "Discount approved." : "Discount rejected." };
 }
 

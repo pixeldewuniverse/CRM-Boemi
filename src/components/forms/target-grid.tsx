@@ -32,7 +32,7 @@ export function TargetGrid({ period, previous, rows }: { period: string; previou
       noValidate
     >
       <input type="hidden" name="period" value={period} />
-      <div className="overflow-x-auto">
+      <div className="relative overflow-x-auto">
         <table className="tbl min-w-[880px]">
           <thead>
             <tr>

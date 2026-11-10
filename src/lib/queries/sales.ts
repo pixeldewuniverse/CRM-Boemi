@@ -1,5 +1,5 @@
 import "server-only";
-import { and, eq, gte, inArray, lt, ne, notInArray, sql } from "drizzle-orm";
+import { and, eq, gte, inArray, lt, ne, notInArray, sql, type SQL } from "drizzle-orm";
 import { getDb, schema } from "@/db";
 
 /** First instant of a YYYY-MM period in Jakarta time. */
@@ -117,7 +117,8 @@ export async function repKpis(period: string) {
 }
 
 /** Monthly revenue by account segment for the last `months` months (incl. current). */
-export async function revenueBySegment(currentPeriod: string, months = 12, salesId?: string) {
+/** `scope` limits orders (e.g. ownedBy(user, orders.salesId)). */
+export async function revenueBySegment(currentPeriod: string, months = 12, scope?: SQL) {
   const periods: string[] = [currentPeriod];
   while (periods.length < months) periods.unshift(prevPeriod(periods[0]));
   const db = getDb();
@@ -132,7 +133,7 @@ export async function revenueBySegment(currentPeriod: string, months = 12, sales
         gte(o.orderedAt, periodStart(periods[0])),
         lt(o.orderedAt, periodStart(nextPeriod(currentPeriod))),
         ne(o.status, "cancelled"),
-        salesId ? eq(o.salesId, salesId) : undefined,
+        scope,
       ),
     )
     .groupBy(monthExpr, schema.customers.businessType);

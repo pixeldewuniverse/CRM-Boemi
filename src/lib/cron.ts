@@ -69,39 +69,22 @@ async function taskReminders() {
   return { reminded: due.length };
 }
 
-/** Daily: reminds approvers about visit fees pending longer than 24h. */
+/** Daily: reminds approvers about requests (visit fees, discounts…) waiting longer than 24h. */
 async function pendingVisitFees() {
   const db = getDb();
   const olderThan = new Date(Date.now() - 24 * HOUR);
-
-  const pending = await db
-    .select({ id: schema.visitFees.id })
-    .from(schema.visitFees)
-    .where(
-      and(
-        eq(schema.visitFees.status, "pending"),
-        lt(schema.visitFees.createdAt, olderThan),
-      ),
-    );
-  if (pending.length === 0) return { pending: 0 };
-
-  const approvers = await db
-    .select({ id: schema.users.id })
-    .from(schema.users)
-    .where(
-      and(
-        eq(schema.users.active, true),
-        inArray(schema.users.role, ["finance", "sales_manager"]),
-      ),
-    );
-
-  await notify({
-    userIds: approvers.map((a) => a.id),
-    type: "visit_fee.pending",
-    title: `${pending.length} visit fee(s) waiting for approval`,
-    link: "/sales/visits",
-  });
-  return { pending: pending.length };
+  const rows = await db
+    .select({ approvers: schema.approvalActions.approverIds })
+    .from(schema.approvalRequests)
+    .innerJoin(schema.approvalActions, and(eq(schema.approvalActions.requestId, schema.approvalRequests.id), eq(schema.approvalActions.position, schema.approvalRequests.currentStep)))
+    .where(and(eq(schema.approvalRequests.status, "pending"), lt(schema.approvalRequests.createdAt, olderThan)));
+  if (rows.length === 0) return { pending: 0 };
+  const perUser = new Map<string, number>();
+  for (const r of rows) for (const id of r.approvers) perUser.set(id, (perUser.get(id) ?? 0) + 1);
+  for (const [userId, n] of perUser) {
+    await notify({ userIds: [userId], type: "approval.requested", title: `${n} request(s) waiting for your approval`, body: "Waiting more than a day.", link: "/approvals" });
+  }
+  return { pending: rows.length, reminded: perUser.size };
 }
 
 /** Daily (06:30 WIB): one summary for Executives and Sales Managers. */

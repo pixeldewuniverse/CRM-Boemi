@@ -15,7 +15,7 @@ export async function guard(href: string): Promise<{ user: CurrentUser; denied: 
       denied: (
         <>
           <PageHeader href={href} />
-          <div className="panel p-8 text-center text-muted">This page is for Admins and Sales Managers only.</div>
+          <div className="panel p-8 text-center text-muted">Your role doesn&apos;t have access to this page.</div>
         </>
       ),
     };

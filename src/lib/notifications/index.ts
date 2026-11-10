@@ -29,6 +29,9 @@ export const NOTIFICATION_TYPES = {
   "quote.decided": { label: "Quotation discount approved/rejected", emailDefault: true },
   "quote.accepted": { label: "Quotation accepted by the customer", emailDefault: false },
   "order.payment": { label: "Payment recorded on your order", emailDefault: false },
+  "approval.requested": { label: "Request waiting for your approval", emailDefault: true },
+  "approval.decided": { label: "Your request was approved/rejected", emailDefault: true },
+  "account.password_reset": { label: "Your password was reset", emailDefault: true },
 } as const;
 
 export type NotificationType = keyof typeof NOTIFICATION_TYPES;

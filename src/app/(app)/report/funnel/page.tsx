@@ -1,11 +1,11 @@
 import type { Metadata } from "next";
+import { guard } from "@/components/page/guard";
 import { and, eq, sql } from "drizzle-orm";
 import { PageHeader } from "@/components/page/page-header";
 import { BarList } from "@/components/ui/column-chart";
 import { Panel } from "@/components/ui/panel";
 import { Stats } from "@/components/ui/stats";
 import { getDb, schema } from "@/db";
-import { getCurrentUser } from "@/lib/auth";
 import { num, pct, rp, rpk } from "@/lib/format";
 import { STAGE, STAGES } from "@/lib/labels";
 import { ownedBy } from "@/lib/scope";
@@ -13,7 +13,8 @@ import { ownedBy } from "@/lib/scope";
 export const metadata: Metadata = { title: "Pipeline & Funnel" };
 
 export default async function FunnelPage() {
-  const user = await getCurrentUser();
+  const { user, denied } = await guard("/report/funnel");
+  if (denied) return denied;
   const db = getDb();
   const o = schema.opportunities;
   const l = schema.leads;

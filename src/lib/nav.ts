@@ -35,7 +35,10 @@ export type NavCategory = {
   items: NavItem[];
 };
 
-const MANAGERS: Role[] = ["sales_manager"];
+/** Administration: Super Admin only (admin is always allowed, so the list is empty). */
+const ADMIN_ONLY: Role[] = [];
+/** Reporting: Executive and Department Head / Manager (+ admin). */
+const REPORTING: Role[] = ["executive", "sales_manager"];
 
 export const NAV: NavCategory[] = [
   {
@@ -44,6 +47,7 @@ export const NAV: NavCategory[] = [
     icon: "dash",
     items: [
       { key: "dashboard", href: "/dashboard", label: "Overview", description: "Target vs actual, today's work and what needs attention." },
+      { key: "approvals", href: "/approvals", label: "Approvals", description: "Requests waiting for your decision — visit fees, quotation discounts — and the ones you sent." },
       { key: "calendar", href: "/calendar", label: "Calendar", description: "Tasks, planned visits, events, campaigns, quotation deadlines and content in one place." },
       { key: "dash-team", href: "/dashboard/team", label: "Team & Sales KPI", description: "Each rep's performance: monthly target, orders, pipeline and activity discipline." },
     ],
@@ -133,11 +137,11 @@ export const NAV: NavCategory[] = [
     label: "Report",
     icon: "rep",
     items: [
-      { key: "rep-sales", href: "/report/sales", label: "Sales", description: "Revenue by channel, rep and product." },
-      { key: "rep-funnel", href: "/report/funnel", label: "Pipeline & Funnel", description: "Conversion between stages and win rate." },
-      { key: "rep-ar", href: "/report/receivables", label: "Receivables & Deposits", description: "Outstanding payments and deposits per account." },
-      { key: "rep-marketing", href: "/report/marketing", label: "Marketing & Event", description: "Campaign and event results against cost." },
-      { key: "rep-visits", href: "/report/visits", label: "Visits & Fees", description: "Visit volume per rep and visit fees paid." },
+      { key: "rep-sales", href: "/report/sales", label: "Sales", description: "Revenue by channel, rep and product.", roles: REPORTING },
+      { key: "rep-funnel", href: "/report/funnel", label: "Pipeline & Funnel", description: "Conversion between stages and win rate.", roles: REPORTING },
+      { key: "rep-ar", href: "/report/receivables", label: "Receivables & Deposits", description: "Outstanding payments and deposits per account.", roles: [...REPORTING, "finance"] },
+      { key: "rep-marketing", href: "/report/marketing", label: "Marketing & Event", description: "Campaign and event results against cost.", roles: REPORTING },
+      { key: "rep-visits", href: "/report/visits", label: "Visits & Fees", description: "Visit volume per rep and visit fees paid.", roles: REPORTING },
     ],
   },
   {
@@ -145,12 +149,14 @@ export const NAV: NavCategory[] = [
     label: "Setting",
     icon: "set",
     items: [
-      { key: "set-users", href: "/settings/users", label: "Users & Roles", description: "Who can sign in and what each role is allowed to do.", roles: MANAGERS },
-      { key: "set-master", href: "/settings/master-data", label: "Master Data", description: "Options used across every form.", roles: MANAGERS },
-      { key: "set-templates", href: "/settings/templates", label: "Document Templates", description: "Numbering, tax and terms that appear on quotations and orders.", roles: MANAGERS },
-      { key: "set-integrations", href: "/settings/integrations", label: "Integrations", description: "How Sales & Marketing Tools connects to the other systems the business already uses.", roles: MANAGERS },
-      { key: "set-gcloud", href: "/settings/google-cloud", label: "Google Cloud", description: "Sales & Marketing Tools runs inside your company's own Google Cloud project. You own the project, the billing and the data.", roles: MANAGERS },
-      { key: "set-audit", href: "/settings/audit", label: "Audit Trail", description: "Every data change is recorded: who, when and what.", roles: MANAGERS },
+      { key: "set-users", href: "/settings/users", label: "Users & Roles", description: "Who can sign in and what each role is allowed to do.", roles: ADMIN_ONLY },
+      { key: "set-departments", href: "/settings/departments", label: "Departments & Teams", description: "Departments, their heads and sub-teams. A Department Head sees the data of everyone in their department.", roles: ADMIN_ONLY },
+      { key: "set-approvals", href: "/settings/approvals", label: "Approval Workflows", description: "Who approves what: steps per request type, by amount.", roles: ADMIN_ONLY },
+      { key: "set-master", href: "/settings/master-data", label: "Master Data", description: "Options used across every form.", roles: ADMIN_ONLY },
+      { key: "set-templates", href: "/settings/templates", label: "Document Templates", description: "Numbering, tax and terms that appear on quotations and orders.", roles: ["sales_manager"] },
+      { key: "set-integrations", href: "/settings/integrations", label: "Integrations", description: "How Sales & Marketing Tools connects to the other systems the business already uses.", roles: ADMIN_ONLY },
+      { key: "set-gcloud", href: "/settings/google-cloud", label: "Google Cloud", description: "Sales & Marketing Tools runs inside your company's own Google Cloud project. You own the project, the billing and the data.", roles: ADMIN_ONLY },
+      { key: "set-audit", href: "/settings/audit", label: "Audit Trail", description: "Every data change is recorded: who, when and what.", roles: ADMIN_ONLY },
     ],
   },
 ];

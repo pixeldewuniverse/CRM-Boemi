@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq, inArray } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { PageHeader } from "@/components/page/page-header";
 import { FilterChips } from "@/components/ui/filter-chips";
@@ -11,7 +11,8 @@ import { getDb, schema } from "@/db";
 import { getCurrentUser } from "@/lib/auth";
 import { CheckInButton } from "@/components/forms/sales-forms";
 import { FeeActions } from "@/components/forms/row-actions";
-import { canApproveFees, canSell } from "@/lib/permissions";
+import { canSell } from "@/lib/permissions";
+import { canDecideStep } from "@/lib/approvals";
 import { accountOptions } from "@/lib/queries/options";
 import { fdate, ftime, rp, ym } from "@/lib/format";
 import { FEE_STATUS } from "@/lib/labels";
@@ -66,7 +67,21 @@ export default async function VisitsPage({ searchParams }: PageProps<"/sales/vis
   const thisMonth = rows.filter((r) => r.at && r.at >= monthStart).length;
   const pending = rows.filter((r) => r.feeStatus === "pending");
   const approved = rows.filter((r) => r.feeStatus === "approved" || r.feeStatus === "paid");
-  const canApprove = canApproveFees(user);
+  // Who may decide each pending fee comes from its approval request (current step).
+  const pendingIds = pending.map((r) => r.feeId).filter((x): x is string => Boolean(x));
+  const steps = pendingIds.length
+    ? await getDb()
+        .select({ feeId: schema.approvalRequests.entityId, requester: schema.approvalRequests.requesterId, approvers: schema.approvalActions.approverIds, label: schema.approvalActions.label })
+        .from(schema.approvalRequests)
+        .innerJoin(schema.approvalActions, and(eq(schema.approvalActions.requestId, schema.approvalRequests.id), eq(schema.approvalActions.position, schema.approvalRequests.currentStep)))
+        .where(and(eq(schema.approvalRequests.entityType, "visit_fee"), eq(schema.approvalRequests.status, "pending"), inArray(schema.approvalRequests.entityId, pendingIds)))
+    : [];
+  const stepOf = new Map(steps.map((x) => [x.feeId, x]));
+  const mayDecide = (feeId: string | null) => {
+    const st = feeId ? stepOf.get(feeId) : undefined;
+    return Boolean(st && canDecideStep(user, st.requester, st.approvers));
+  };
+  const canApprove = pending.some((r) => mayDecide(r.feeId));
 
   return (
     <>
@@ -150,7 +165,8 @@ export default async function VisitsPage({ searchParams }: PageProps<"/sales/vis
                     <StatusPill map={FEE_STATUS} value={r.feeStatus} />
                     {r.decidedBy && <p className="mt-1 text-xs text-muted">by {r.decidedBy}</p>}
                     {r.feeNote && <p className="mt-1 max-w-48 text-xs text-bad">{r.feeNote}</p>}
-                    {canApprove && r.feeStatus === "pending" && r.feeId && r.feeBy !== user.id && <FeeActions feeId={r.feeId} />}
+                    {r.feeStatus === "pending" && r.feeId && stepOf.get(r.feeId) && <p className="mt-1 text-xs text-muted">Waiting for {stepOf.get(r.feeId)!.label}</p>}
+                    {r.feeStatus === "pending" && r.feeId && mayDecide(r.feeId) && <FeeActions feeId={r.feeId} />}
                   </td>
                 </tr>
               ))}

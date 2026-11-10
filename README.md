@@ -127,6 +127,29 @@ Kode: `src/lib/csv.ts` (parser RFC 4180), `src/lib/import/fields.ts` (kolom, ali
 
 Migrasi Batch 3: `0006_profile_avatar_session.sql` (`users.avatar_key`, `users.session_version`), `0007_search_trgm.sql` (pg_trgm + index trigram, bersyarat).
 
+### User & RBAC + Approval Engine (Batch 4)
+
+**Role (Access Matrix v2.0).** Kode enum tetap; label baru: `admin` = Super Admin, `executive` = Executive / Director, `sales_manager` = **Department Head / Manager** (departemen apa pun), `finance` = Finance / Approver, `sales` = Sales User, `marketing` = Marketing User, `designer`, dan role baru `project_manager` & `staff` (General Staff).
+
+| Modul | Akses |
+| --- | --- |
+| Dashboard, CRM & Sales, Marketing, Event, Database, Approvals | semua role (read & execute) |
+| Report | Executive, Manager, Admin (Finance: hanya Receivables) |
+| Setting | Super Admin (Document Templates juga Manager) |
+
+**Scope data** (`src/lib/scope.ts`, `ROLE_SCOPE` di `roles.ts`): *all* = admin, executive, finance, marketing, designer · *team* = Department Head / Manager: semua orang di departemennya (+ sub-departemen), bawahan langsung, dirinya, dan record tanpa owner · *own* = sales, staff, project manager. Semua halaman, search, export, kalender, dan file memakai scope ini; halaman Report & Setting dicek di server (`guard()`).
+
+- **Users & Roles** (`/settings/users`): tambah, edit, aktif/nonaktif, reset password. Password sementara (12 karakter) dikirim lewat email dan ditampilkan sekali ke admin; user **wajib ganti password** saat login pertama (`/change-password`). Tidak bisa menonaktifkan/menurunkan **Super Admin aktif terakhir** atau diri sendiri. Nonaktif / reset / ganti role → sesi user langsung putus. User hasil import diaktifkan lewat *Activate & invite*. Persiapan Google Workspace: `users.auth_provider` (`password` | `google`) + `google_sub`.
+- **Departments & Teams** (`/settings/departments`): nama, kode, kepala, induk. Kolom teks lama `users.department` diisi otomatis ke tabel `departments` oleh migrasi dan tetap disinkronkan.
+- **Approval engine** (`src/lib/approvals.ts`): `approval_flows` (tipe: visit_fee, quotation_discount, project, project_budget, purchase_request; rentang nominal; prioritas) → `approval_flow_steps` (approver: role tertentu — boleh beberapa —, orang tertentu, atasan langsung, kepala departemen) → `approval_requests` + `approval_actions` (step disalin saat diajukan; status, catatan, waktu per step). Pemohon tidak bisa menyetujui permintaannya sendiri; bila step tidak menemukan approver → Super Admin. Notifikasi ke approver tiap step & ke pemohon saat selesai.
+  - **Visit fee**: default 1 step *Manager atau Finance* (sama dengan perilaku lama); fee lama yang masih pending dimigrasikan jadi request. Contoh tambahan (seed): fee ≥ Rp 500.000 → atasan langsung, lalu Finance.
+  - **Diskon quotation** di atas batas sales memakai engine yang sama (nominal = % diskon).
+  - **Approvals** (`/approvals`, menu Dashboard, ada badge): kotak masuk approver + riwayat permintaan sendiri.
+  - **Approval Workflows** (`/settings/approvals`): daftar & editor workflow (urutan step bisa di-drag, juga dengan keyboard) + **Test**: "siapa approver untuk nominal X dari orang Y?".
+  - Cron `pending-visit-fees` sekarang mengingatkan semua approval yang tertunda > 24 jam (nama job tetap, jadwal Cloud Scheduler tidak berubah).
+
+Migrasi Batch 4: `0008_rbac_departments_approvals.sql` (enum role + `project_manager`, `staff`; `departments`; kolom user baru; 4 tabel approval; backfill departemen, flow default, dan request untuk fee/diskon yang masih pending). Library kecil baru: `@dnd-kit/sortable` + `@dnd-kit/utilities` (keluarga @dnd-kit yang sudah dipakai) untuk mengurutkan step.
+
 Kenapa tabel `activities` terpisah dari `tasks`: task = pekerjaan yang **akan** dilakukan (assignee, deadline, pengingat, board Kanban, KPI "overdue"); activity = catatan yang **sudah** terjadi. Memakai `tasks` untuk log akan mengotori board & pengingat dan butuh banyak kolom kosong. Aktivitas tetap ikut dihitung di KPI *activities* rep.
 
 Nomor dokumen dibuat atomik di `document_counters` (`INSERT … ON CONFLICT DO UPDATE … RETURNING`), jadi dua user yang menyimpan bersamaan tidak mendapat nomor yang sama. Semua create/update/delete/approve/payment tercatat di **Setting → Audit Trail**.
@@ -137,7 +160,7 @@ Nomor dokumen dibuat atomik di `document_counters` (`INSERT … ON CONFLICT DO U
 
 Data Batch 1 (`ensureBatch1Demo`, aman dijalankan berulang — juga mengisi database staging yang sudah di-seed sebelumnya): satuan produk, catatan kontak, 13 log aktivitas, target 4 metrik (bulan ini & lalu), riwayat pembayaran deposit/pelunasan, status pengiriman, data perusahaan dummy untuk PDF, counter nomor dokumen yang melanjutkan nomor demo, 1 quotation draft dengan diskon 15% yang menunggu approval manager, tautan campaign di beberapa akun.
 
-Login demo (password = `SEED_ADMIN_PASSWORD` saat seed pertama): `admin@`, `manager@`, `sales@`, `dewi@`, `putu@`, `marketing@`, `finance@`, `designer@example.test`.
+Login demo (password = `SEED_ADMIN_PASSWORD` saat seed pertama): `admin@`, `manager@`, `sales@`, `dewi@`, `putu@`, `marketing@`, `finance@`, `designer@`, `owner@`, `staff@`, `pm@example.test`.
 
 ## Skema Phase 1
 
@@ -213,7 +236,7 @@ Semua job butuh header `Authorization: Bearer $CRON_SECRET`. Vercel Cron mengiri
 
 ## Belum dikerjakan (berikutnya)
 
-- Batch 2–4: User & RBAC, Project Management (Gantt/kalender), Workspace & Reporting, approval engine (memindahkan approval diskon quotation)
+- Project Management (Gantt/kalender) — approval engine sudah siap untuk tipe project, project_budget, purchase_request
 - PDF untuk sales order / invoice (saat ini hanya quotation)
 - Scoring kualifikasi (rule-based dari `qualification_criteria` + Gemini/Vertex AI untuk catatan kunjungan)
 - Rate limit login, reset password, login Google Workspace

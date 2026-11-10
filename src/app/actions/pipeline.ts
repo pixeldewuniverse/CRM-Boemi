@@ -6,6 +6,7 @@ import { z } from "zod";
 import { getDb, schema } from "@/db";
 import { audit } from "@/lib/audit";
 import { verifyUser } from "@/lib/auth";
+import { mayManage } from "@/lib/scope";
 import { fieldErrors, formObject, parseRupiah, type FormState } from "@/lib/forms";
 import { LOST_REASONS, STAGE, STAGES } from "@/lib/labels";
 import { canSell, isManager } from "@/lib/permissions";
@@ -15,7 +16,6 @@ import { notify } from "@/lib/notifications";
 import { managersOf } from "@/lib/notifications/recipients";
 import { rp } from "@/lib/format";
 
-const MANAGES = ["admin", "sales_manager"];
 
 const Input = z.object({
   dealId: z.uuid(),
@@ -41,7 +41,7 @@ export async function moveDeal(input: z.input<typeof Input>): Promise<MoveResult
     .innerJoin(schema.customers, eq(schema.customers.id, o.customerId))
     .where(eq(o.id, dealId));
   if (!deal) return { ok: false, error: "Deal not found." };
-  if (deal.ownerId !== user.id && !MANAGES.includes(user.role)) {
+  if (!(await mayManage(user, deal.ownerId))) {
     return { ok: false, error: "Only the deal owner or a sales manager can move this deal." };
   }
   if (deal.stage === stage) return { ok: true };

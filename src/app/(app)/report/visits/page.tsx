@@ -1,18 +1,19 @@
 import type { Metadata } from "next";
+import { guard } from "@/components/page/guard";
 import { and, eq, gte, sql } from "drizzle-orm";
 import { PageHeader } from "@/components/page/page-header";
 import { BarList } from "@/components/ui/column-chart";
 import { Empty, Panel } from "@/components/ui/panel";
 import { Stats } from "@/components/ui/stats";
 import { getDb, schema } from "@/db";
-import { getCurrentUser } from "@/lib/auth";
 import { num, rp } from "@/lib/format";
 import { now, ownedBy } from "@/lib/scope";
 
 export const metadata: Metadata = { title: "Visits & Fees report" };
 
 export default async function VisitsReportPage() {
-  const user = await getCurrentUser();
+  const { user, denied } = await guard("/report/visits");
+  if (denied) return denied;
   const since = new Date((await now()).getTime() - 90 * 86_400_000);
   const v = schema.visits;
   const f = schema.visitFees;

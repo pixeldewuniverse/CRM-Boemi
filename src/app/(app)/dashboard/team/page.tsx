@@ -6,7 +6,7 @@ import { Pill } from "@/components/ui/pill";
 import { getCurrentUser } from "@/lib/auth";
 import { monthLabel, rpk, ym } from "@/lib/format";
 import { prevPeriod, repKpis } from "@/lib/queries/sales";
-import { now, seesAll } from "@/lib/scope";
+import { now, visibleUserIds } from "@/lib/scope";
 
 export const metadata: Metadata = { title: "Team & Sales KPI" };
 
@@ -14,7 +14,8 @@ export default async function TeamPage() {
   const user = await getCurrentUser();
   const period = ym(await now());
   const all = await repKpis(period);
-  const rows = (seesAll(user) ? all : all.filter((r) => r.id === user.id)).filter((r) => r.role === "sales");
+  const visible = await visibleUserIds(user);
+  const rows = (visible ? all.filter((r) => visible.has(r.id)) : all).filter((r) => r.role === "sales");
 
   return (
     <>

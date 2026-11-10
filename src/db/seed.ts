@@ -143,6 +143,7 @@ async function main() {
         await ensureBatch1Demo(tx as unknown as Db);
         await ensureBatch2Demo(tx as unknown as Db);
         await ensureBatch3Demo(tx as unknown as Db);
+        await ensureBatch4Demo(tx as unknown as Db);
       });
       return console.log("Demo data already present — skipping seed (batch 1 demo data checked).");
     }
@@ -163,6 +164,7 @@ async function main() {
       await ensureBatch1Demo(tx as unknown as Db);
       await ensureBatch2Demo(tx as unknown as Db);
       await ensureBatch3Demo(tx as unknown as Db);
+      await ensureBatch4Demo(tx as unknown as Db);
     });
     console.log("Seeded demo data: 8 users, 14 products, 12 accounts, leads, deals, quotations, orders (+12-month history), visits, tasks, campaigns, events, content.");
   } finally {
@@ -406,10 +408,92 @@ async function ensureBatch3Demo(db: Db) {
   }
 }
 
+/**
+ * Batch 4: departments + heads, reporting lines for the new roles, an extra
+ * two-step visit-fee workflow, and approval requests for everything that is
+ * pending (fresh databases get their fees from the seed, after the migration ran).
+ */
+async function ensureBatch4Demo(db: Db) {
+  const deps: [string, string, string | null, string | null][] = [
+    // code, name, parent code, head email
+    ["SALES", "Sales", null, "manager@example.test"],
+    ["MARKETING", "Marketing", null, "marketing@example.test"],
+    ["CONTENT-DESIGN", "Content Design", "MARKETING", null],
+    ["FINANCE", "Finance", null, "finance@example.test"],
+    ["IT", "IT", null, "admin@example.test"],
+    ["MANAGEMENT", "Management", null, "owner@example.test"],
+  ];
+  const users = await db.select({ id: schema.users.id, email: schema.users.email, department: schema.users.department, departmentId: schema.users.departmentId }).from(schema.users);
+  const uid = (e: string | null) => (e ? users.find((u) => u.email === e)?.id ?? null : null);
+  for (const [code, name, , head] of deps) {
+    await db.insert(schema.departments).values({ code, name, headUserId: uid(head) }).onConflictDoNothing();
+  }
+  const all = await db.select().from(schema.departments);
+  const byCode = new Map(all.map((d) => [d.code, d]));
+  for (const [code, , parent, head] of deps) {
+    const d = byCode.get(code)!;
+    const patch: Partial<typeof schema.departments.$inferInsert> = {};
+    if (parent && !d.parentId) patch.parentId = byCode.get(parent)?.id;
+    if (head && !d.headUserId) patch.headUserId = uid(head);
+    if (Object.keys(patch).length) await db.update(schema.departments).set(patch).where(eq(schema.departments.id, d.id));
+  }
+  // Place people (only those without a department id yet).
+  const placement: Record<string, string> = { "designer@example.test": "CONTENT-DESIGN" };
+  for (const u of users) {
+    if (u.departmentId) continue;
+    const code = placement[u.email] ?? (u.department ? u.department.toUpperCase().replace(/[^A-Z0-9]+/g, "-") : null);
+    const d = code ? byCode.get(code) : undefined;
+    if (d) await db.update(schema.users).set({ departmentId: d.id, department: d.name }).where(eq(schema.users.id, u.id));
+  }
+  // Reporting lines for the new demo roles.
+  const manager = uid("manager@example.test");
+  const owner = uid("owner@example.test");
+  if (manager && uid("staff@example.test")) await db.update(schema.users).set({ managerId: manager }).where(and(eq(schema.users.email, "staff@example.test"), sql`${schema.users.managerId} is null`));
+  if (owner && uid("pm@example.test")) await db.update(schema.users).set({ managerId: owner }).where(and(eq(schema.users.email, "pm@example.test"), sql`${schema.users.managerId} is null`));
+
+  // Extra workflow: bigger visit fees need the direct manager, then Finance.
+  const [big] = await db.select({ id: schema.approvalFlows.id }).from(schema.approvalFlows).where(eq(schema.approvalFlows.name, "Visit fee from Rp 500,000: manager then finance"));
+  if (!big) {
+    const [f] = await db
+      .insert(schema.approvalFlows)
+      .values({ entityType: "visit_fee", name: "Visit fee from Rp 500,000: manager then finance", minAmount: 500_000, priority: 50 })
+      .returning({ id: schema.approvalFlows.id });
+    await db.insert(schema.approvalFlowSteps).values([
+      { flowId: f.id, position: 1, approverType: "direct_manager", label: "Direct manager" },
+      { flowId: f.id, position: 2, approverType: "role", roles: ["finance"], label: "Finance" },
+    ]);
+  }
+
+  // Requests for pending fees / discounts that don't have one yet (default flows, step 1 = role step).
+  await db.execute(sql`
+    insert into approval_requests (flow_id, entity_type, entity_id, amount, title, link, requester_id, status, current_step, created_at)
+    select '00000000-0000-4000-8000-000000000001', 'visit_fee', f.id, f.amount, 'Visit fee · ' || c.name || ' · ' || u.name, '/sales/visits?fee=pending', f.requested_by, 'pending', 1, f.created_at
+      from visit_fees f join visits v on v.id = f.visit_id join customers c on c.id = v.customer_id join users u on u.id = f.requested_by
+     where f.status = 'pending' and not exists (select 1 from approval_requests r where r.entity_type = 'visit_fee' and r.entity_id = f.id)
+       and exists (select 1 from approval_flows where id = '00000000-0000-4000-8000-000000000001')`);
+  await db.execute(sql`
+    insert into approval_requests (flow_id, entity_type, entity_id, amount, title, link, requester_id, status, current_step, created_at)
+    select '00000000-0000-4000-8000-000000000002', 'quotation_discount', q.id, ceil(q.discount_pct)::bigint, q.quote_no || ' · ' || q.discount_pct || '% discount · ' || c.name, '/sales/quotations/' || q.id, q.owner_id, 'pending', 1, q.created_at
+      from quotations q join customers c on c.id = q.customer_id
+     where q.approval = 'pending' and q.owner_id is not null and not exists (select 1 from approval_requests r where r.entity_type = 'quotation_discount' and r.entity_id = q.id)
+       and exists (select 1 from approval_flows where id = '00000000-0000-4000-8000-000000000002')`);
+  await db.execute(sql`
+    insert into approval_actions (request_id, position, label, approver_type, roles, approver_ids, status)
+    select r.id, 1, s.label, s.approver_type, s.roles,
+           coalesce(nullif(array(select u.id from users u where u.active and u.role::text = any (s.roles) and u.id <> r.requester_id), '{}'),
+                    array(select u.id from users u where u.active and u.role = 'admin' and u.id <> r.requester_id)),
+           'pending'
+      from approval_requests r join approval_flow_steps s on s.flow_id = r.flow_id and s.position = 1
+     where r.status = 'pending' and not exists (select 1 from approval_actions a where a.request_id = r.id)`);
+}
+
 /** Personas added after the first demo seed (safe to run on every deploy). */
 async function ensureExtraDemoUsers(db: Db, passwordHash: string) {
   const extras = [
     { email: "owner@example.test", name: "BOEMI Owner", role: "executive" as const, position: "Owner / Director", department: "Management", region: "All regions" },
+    // Batch 4 roles
+    { email: "staff@example.test", name: "Made Wirawan", role: "staff" as const, position: "Customer Service", department: "Sales", region: "Bali" },
+    { email: "pm@example.test", name: "Rizky Pratama", role: "project_manager" as const, position: "Project Manager", department: "Management", region: "Bali" },
   ];
   for (const u of extras) {
     const [row] = await db.select({ id: schema.users.id }).from(schema.users).where(sql`lower(${schema.users.email}) = ${u.email}`).limit(1);

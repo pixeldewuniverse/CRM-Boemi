@@ -1,27 +1,27 @@
 import type { Metadata } from "next";
+import { guard } from "@/components/page/guard";
 import { and, desc, eq, gte, lt, ne, sql } from "drizzle-orm";
 import { PageHeader } from "@/components/page/page-header";
 import { BarList, ColumnChart } from "@/components/ui/column-chart";
 import { Panel } from "@/components/ui/panel";
 import { Stats } from "@/components/ui/stats";
 import { getDb, schema } from "@/db";
-import { getCurrentUser } from "@/lib/auth";
 import { num, pct, rp, rpk, ym } from "@/lib/format";
 import { nextPeriod, periodStart, revenueBySegment } from "@/lib/queries/sales";
-import { now, ownedBy, seesAll } from "@/lib/scope";
+import { now, ownedBy } from "@/lib/scope";
 import { segmentSeries } from "@/lib/segments";
 
 export const metadata: Metadata = { title: "Sales report" };
 
 export default async function SalesReportPage() {
-  const user = await getCurrentUser();
+  const { user, denied } = await guard("/report/sales");
+  if (denied) return denied;
   const period = ym(await now());
-  const mine = !seesAll(user);
   const db = getDb();
   const o = schema.orders;
   const oi = schema.orderItems;
 
-  const revenue = await revenueBySegment(period, 12, mine ? user.id : undefined);
+  const revenue = await revenueBySegment(period, 12, ownedBy(user, o.salesId));
   const from = periodStart(revenue.periods[0]);
   const to = periodStart(nextPeriod(period));
   const window = and(ownedBy(user, o.salesId), gte(o.orderedAt, from), lt(o.orderedAt, to), ne(o.status, "cancelled"));

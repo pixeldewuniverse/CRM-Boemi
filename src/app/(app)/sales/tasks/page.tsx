@@ -1,3 +1,4 @@
+import { isManager } from "@/lib/permissions";
 import type { Metadata } from "next";
 import { and, asc, desc, eq, gte, inArray } from "drizzle-orm";
 import { PageHeader } from "@/components/page/page-header";
@@ -15,7 +16,6 @@ import { now, ownedBy, seesAll } from "@/lib/scope";
 
 export const metadata: Metadata = { title: "Tasks & Follow-up" };
 const HREF = "/sales/tasks";
-const MANAGES = ["admin", "sales_manager"];
 
 export default async function TasksPage({ searchParams }: PageProps<"/sales/tasks">) {
   const user = await getCurrentUser();
@@ -29,6 +29,7 @@ export default async function TasksPage({ searchParams }: PageProps<"/sales/task
         .selectDistinct({ id: schema.users.id, name: schema.users.name })
         .from(t)
         .innerJoin(schema.users, eq(schema.users.id, t.assigneeId))
+        .where(ownedBy(user, t.assigneeId))
         .orderBy(asc(schema.users.name))
     : [];
   const who = people.some((p) => p.id === params.who) ? (params.who as string) : undefined;
@@ -93,7 +94,7 @@ export default async function TasksPage({ searchParams }: PageProps<"/sales/task
           id: c.id,
           title: c.title,
           column: c.status,
-          movable: c.assigneeId === user.id || MANAGES.includes(user.role),
+          movable: c.assigneeId === user.id || isManager(user),
           type: c.type,
           due: c.due ? ymd(c.due) : null,
           account: c.account,

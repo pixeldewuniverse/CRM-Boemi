@@ -1,17 +1,18 @@
 import type { Metadata } from "next";
+import { guard } from "@/components/page/guard";
 import { desc } from "drizzle-orm";
 import { PageHeader } from "@/components/page/page-header";
 import { BarList } from "@/components/ui/column-chart";
 import { Panel } from "@/components/ui/panel";
 import { Stats } from "@/components/ui/stats";
 import { getDb, schema } from "@/db";
-import { getCurrentUser } from "@/lib/auth";
 import { num, rp, rpk } from "@/lib/format";
 
 export const metadata: Metadata = { title: "Marketing & Event report" };
 
 export default async function MarketingReportPage() {
-  await getCurrentUser();
+  const { denied } = await guard("/report/marketing");
+  if (denied) return denied;
   const db = getDb();
   const [campaigns, events] = await Promise.all([
     db.select().from(schema.campaigns).orderBy(desc(schema.campaigns.startsOn)),

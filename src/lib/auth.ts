@@ -15,6 +15,8 @@ export type CurrentUser = {
   email: string;
   role: Role;
   avatarKey: string | null;
+  departmentId: string | null;
+  mustChangePassword: boolean;
 };
 
 async function loadUser(): Promise<CurrentUser> {
@@ -29,6 +31,8 @@ async function loadUser(): Promise<CurrentUser> {
       role: schema.users.role,
       sessionVersion: schema.users.sessionVersion,
       avatarKey: schema.users.avatarKey,
+      departmentId: schema.users.departmentId,
+      mustChangePassword: schema.users.mustChangePassword,
     })
     .from(schema.users)
     .where(and(eq(schema.users.id, userId), eq(schema.users.active, true)))
@@ -36,7 +40,9 @@ async function loadUser(): Promise<CurrentUser> {
 
   // Signed out everywhere after a password change.
   if (!user || user.sessionVersion !== (v ?? 0)) redirect("/login");
-  return { id: user.id, name: user.name, email: user.email, role: user.role, avatarKey: user.avatarKey };
+  const { sessionVersion: _v, ...current } = user;
+  void _v;
+  return current;
 }
 
 /**

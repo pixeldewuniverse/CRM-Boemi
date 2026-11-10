@@ -10,7 +10,7 @@ import { monthLabel, num, rp, rpk, ym } from "@/lib/format";
 import { TARGET_METRICS, type TargetMetric } from "@/lib/labels";
 import { canManageTargets } from "@/lib/permissions";
 import { nextPeriod, prevPeriod, repKpis } from "@/lib/queries/sales";
-import { now, seesAll } from "@/lib/scope";
+import { now, visibleUserIds } from "@/lib/scope";
 
 export const metadata: Metadata = { title: "Targets" };
 const HREF = "/sales/targets";
@@ -23,7 +23,8 @@ export default async function TargetsPage({ searchParams }: PageProps<"/sales/ta
   const asked = typeof params.period === "string" && /^\d{4}-(0[1-9]|1[0-2])$/.test(params.period) ? params.period : current;
   const period = asked;
   const all = await repKpis(period);
-  const scoped = seesAll(user) ? all : all.filter((r) => r.id === user.id);
+  const visible = await visibleUserIds(user);
+  const scoped = visible ? all.filter((r) => visible.has(r.id)) : all;
   const rows: TargetRow[] = scoped.map((r) => ({
     id: r.id,
     name: r.name,

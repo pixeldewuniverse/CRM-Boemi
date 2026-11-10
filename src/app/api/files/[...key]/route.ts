@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
 import { getDb, schema } from "@/db";
 import { verifyUser } from "@/lib/auth";
-import { seesAll } from "@/lib/scope";
+import { visibleUserIds } from "@/lib/scope";
 import { getStorage } from "@/lib/storage";
 
 /**
@@ -27,7 +27,8 @@ export async function GET(_request: Request, ctx: RouteContext<"/api/files/[...k
       .where(eq(schema.visits.photoKey, objectKey))
       .limit(1);
     if (!visit) return Response.json({ error: "Not found" }, { status: 404 });
-    if (!seesAll(user) && visit.salesId !== user.id) return Response.json({ error: "Not found" }, { status: 404 });
+    const visible = await visibleUserIds(user);
+    if (visible && !visible.has(visit.salesId)) return Response.json({ error: "Not found" }, { status: 404 });
   }
 
   const file = await (await getStorage()).read(objectKey);

@@ -6,6 +6,7 @@ import { z } from "zod";
 import { getDb, schema } from "@/db";
 import { audit } from "@/lib/audit";
 import { verifyUser } from "@/lib/auth";
+import { mayManage } from "@/lib/scope";
 import { fieldErrors, formObject, type FormState } from "@/lib/forms";
 import { ACTIVITY_TYPES, TASK_COLUMNS, TASK_STATUS } from "@/lib/labels";
 import { canSell, isManager } from "@/lib/permissions";
@@ -14,7 +15,6 @@ import { and } from "drizzle-orm";
 import { notify } from "@/lib/notifications";
 import type { MoveResult } from "./pipeline";
 
-const MANAGES = ["admin", "sales_manager"];
 
 const Input = z.object({
   taskId: z.uuid(),
@@ -36,7 +36,7 @@ export async function moveTask(input: z.input<typeof Input>): Promise<MoveResult
     .leftJoin(schema.users, eq(schema.users.id, t.assigneeId))
     .where(eq(t.id, taskId));
   if (!task) return { ok: false, error: "Task not found." };
-  if (task.assigneeId !== user.id && !MANAGES.includes(user.role)) {
+  if (!(await mayManage(user, task.assigneeId))) {
     return { ok: false, error: "Only the assignee or a sales manager can move this task." };
   }
   if (task.status === status) return { ok: true };

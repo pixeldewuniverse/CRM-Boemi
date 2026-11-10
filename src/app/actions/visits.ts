@@ -1,6 +1,6 @@
 "use server";
 
-import { and, eq, inArray, ne } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { refresh } from "next/cache";
 import { z } from "zod";
 import { getDb, schema } from "@/db";
@@ -10,8 +10,8 @@ import { customerScope } from "@/lib/customers";
 import { fieldErrors, formObject, parseRupiah, type FormState } from "@/lib/forms";
 import { rp } from "@/lib/format";
 import { VISIT_PURPOSES } from "@/lib/labels";
-import { notify } from "@/lib/notifications";
-import { canApproveFees, canSell } from "@/lib/permissions";
+import { canSell } from "@/lib/permissions";
+import { decide, pendingRequestFor, submitForApproval } from "@/lib/approvals";
 import { sniffImage } from "@/lib/sniff-image";
 import { buildKey, getStorage } from "@/lib/storage";
 
@@ -60,7 +60,7 @@ export async function checkInVisit(_prev: FormState, fd: FormData): Promise<Form
   await (await getStorage()).put(key, bytes, ext === "jpg" ? "image/jpeg" : `image/${ext}`);
   const now = new Date();
 
-  await db.transaction(async (tx) => {
+  const feeId = await db.transaction(async (tx) => {
     const [visit] = await tx
       .insert(schema.visits)
       .values({
@@ -77,23 +77,19 @@ export async function checkInVisit(_prev: FormState, fd: FormData): Promise<Form
       })
       .returning({ id: schema.visits.id });
     if (fee > 0) {
-      await tx.insert(schema.visitFees).values({ visitId: visit.id, amount: fee, description: "Transport & parking", status: "pending", requestedBy: user.id });
+      const [f] = await tx.insert(schema.visitFees).values({ visitId: visit.id, amount: fee, description: "Transport & parking", status: "pending", requestedBy: user.id }).returning({ id: schema.visitFees.id });
+      return f.id;
     }
+    return null;
   });
 
   await audit({ actorId: user.id, action: "check_in", entity: "visit", entityId: account.name, changes: { fee, gps: `${d.lat.toFixed(5)},${d.lng.toFixed(5)}` } });
-  if (fee > 0) {
-    const approvers = await db
-      .select({ id: schema.users.id })
-      .from(schema.users)
-      .where(and(eq(schema.users.active, true), inArray(schema.users.role, ["finance", "sales_manager"]), ne(schema.users.id, user.id)));
-    await notify({
-      userIds: approvers.map((a) => a.id),
-      type: "visit_fee.pending",
-      title: `Visit fee ${rp(fee)} to approve`,
-      body: `${user.name} · ${account.name}`,
-      link: "/sales/visits?fee=pending",
-    });
+  if (feeId) {
+    // Approval engine (Settings → Approval Workflows); default flow: Manager or Finance.
+    const res = await submitForApproval({ entityType: "visit_fee", entityId: feeId, amount: fee, title: `Visit fee · ${account.name} · ${user.name}`, link: "/sales/visits?fee=pending", requesterId: user.id });
+    if (res.status === "approved") {
+      await db.update(schema.visitFees).set({ status: "approved", decidedAt: new Date(), decisionNote: "No approval needed for this amount." }).where(eq(schema.visitFees.id, feeId));
+    }
   }
   refresh();
   return { ok: true, message: `Checked in at ${account.name}.` };
@@ -111,18 +107,14 @@ async function loadFee(feeId: string) {
 
 export async function approveFee(feeId: string): Promise<FormState> {
   const user = await verifyUser();
-  if (!canApproveFees(user)) return { ok: false, error: "Only Finance or a Sales Manager can approve." };
   const id = z.uuid().safeParse(feeId);
   if (!id.success) return { ok: false, error: "Invalid fee." };
   const fee = await loadFee(id.data);
   if (!fee || fee.status !== "pending") return { ok: false, error: "This fee is no longer pending." };
-  if (fee.requestedBy === user.id) return { ok: false, error: "You can't approve your own fee." };
-  await getDb()
-    .update(schema.visitFees)
-    .set({ status: "approved", decidedBy: user.id, decidedAt: new Date(), decisionNote: null })
-    .where(and(eq(schema.visitFees.id, fee.id), eq(schema.visitFees.status, "pending")));
-  await audit({ actorId: user.id, action: "approve", entity: "visit_fee", entityId: fee.account, changes: { amount: fee.amount } });
-  await notify({ userIds: [fee.requestedBy], type: "visit_fee.decided", title: `Visit fee approved: ${rp(fee.amount)}`, body: `${fee.account} · by ${user.name}`, link: "/sales/visits" });
+  const pending = await pendingRequestFor("visit_fee", fee.id);
+  if (!pending) return { ok: false, error: "This fee is not waiting for approval." };
+  const res = await decide(user, pending.req.id, "approved");
+  if (!res.ok) return { ok: false, error: res.error };
   refresh();
   return { ok: true };
 }
@@ -131,18 +123,14 @@ const Reject = z.object({ feeId: z.uuid(), note: z.string("Tell the rep why.").m
 
 export async function rejectFee(_prev: FormState, fd: FormData): Promise<FormState> {
   const user = await verifyUser();
-  if (!canApproveFees(user)) return { ok: false, error: "Only Finance or a Sales Manager can reject." };
   const parsed = Reject.safeParse(formObject(fd));
   if (!parsed.success) return fieldErrors(parsed.error);
   const fee = await loadFee(parsed.data.feeId);
   if (!fee || fee.status !== "pending") return { ok: false, error: "This fee is no longer pending." };
-  if (fee.requestedBy === user.id) return { ok: false, error: "You can't decide on your own fee." };
-  await getDb()
-    .update(schema.visitFees)
-    .set({ status: "rejected", decidedBy: user.id, decidedAt: new Date(), decisionNote: parsed.data.note })
-    .where(and(eq(schema.visitFees.id, fee.id), eq(schema.visitFees.status, "pending")));
-  await audit({ actorId: user.id, action: "reject", entity: "visit_fee", entityId: fee.account, changes: { reason: parsed.data.note } });
-  await notify({ userIds: [fee.requestedBy], type: "visit_fee.decided", title: `Visit fee rejected: ${rp(fee.amount)}`, body: parsed.data.note, link: "/sales/visits" });
+  const pending = await pendingRequestFor("visit_fee", fee.id);
+  if (!pending) return { ok: false, error: "This fee is not waiting for approval." };
+  const res = await decide(user, pending.req.id, "rejected", parsed.data.note);
+  if (!res.ok) return { ok: false, error: res.error };
   refresh();
   return { ok: true };
 }

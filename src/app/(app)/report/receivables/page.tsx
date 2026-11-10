@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { guard } from "@/components/page/guard";
 import Link from "next/link";
 import { and, asc, eq, ne } from "drizzle-orm";
 import { PageHeader } from "@/components/page/page-header";
@@ -7,7 +8,6 @@ import { PaymentPill } from "@/components/ui/payment-pill";
 import { Pill } from "@/components/ui/pill";
 import { Stats } from "@/components/ui/stats";
 import { getDb, schema } from "@/db";
-import { getCurrentUser } from "@/lib/auth";
 import { daysBetween, fdate, rp, rpk } from "@/lib/format";
 import { now, ownedBy } from "@/lib/scope";
 
@@ -19,7 +19,8 @@ const BUCKETS = [
 ];
 
 export default async function ReceivablesPage() {
-  const user = await getCurrentUser();
+  const { user, denied } = await guard("/report/receivables");
+  if (denied) return denied;
   const today = await now();
   const o = schema.orders;
   const rows = await getDb()

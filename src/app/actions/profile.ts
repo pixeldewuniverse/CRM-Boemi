@@ -3,6 +3,7 @@
 import bcrypt from "bcryptjs";
 import { eq, sql } from "drizzle-orm";
 import { refresh } from "next/cache";
+import { redirect } from "next/navigation";
 import { z } from "zod";
 import { getDb, schema } from "@/db";
 import { audit } from "@/lib/audit";
@@ -86,7 +87,7 @@ export async function changePassword(_prev: FormState, fd: FormData): Promise<Fo
   const parsed = Password.safeParse({ current: fd.get("current") ?? undefined, next: fd.get("next") ?? undefined, confirm: fd.get("confirm") ?? undefined });
   if (!parsed.success) return fieldErrors(parsed.error);
   const db = getDb();
-  const [row] = await db.select({ hash: schema.users.passwordHash }).from(schema.users).where(eq(schema.users.id, user.id));
+  const [row] = await db.select({ hash: schema.users.passwordHash, forced: schema.users.mustChangePassword }).from(schema.users).where(eq(schema.users.id, user.id));
   if (!row?.hash || !(await bcrypt.compare(parsed.data.current, row.hash))) {
     await audit({ actorId: user.id, action: "password_change_failed", entity: "profile", entityId: user.email });
     return { ok: false, error: "Please check the highlighted fields.", fieldErrors: { current: "Current password is incorrect." } };
@@ -94,7 +95,7 @@ export async function changePassword(_prev: FormState, fd: FormData): Promise<Fo
   const hash = await bcrypt.hash(parsed.data.next, 12);
   const [updated] = await db
     .update(schema.users)
-    .set({ passwordHash: hash, sessionVersion: sql`${schema.users.sessionVersion} + 1` })
+    .set({ passwordHash: hash, mustChangePassword: false, sessionVersion: sql`${schema.users.sessionVersion} + 1` })
     .where(eq(schema.users.id, user.id))
     .returning({ v: schema.users.sessionVersion });
   // Keep this browser signed in with the new version; other devices are signed out.
@@ -102,6 +103,8 @@ export async function changePassword(_prev: FormState, fd: FormData): Promise<Fo
   session.v = updated.v;
   await session.save();
   await audit({ actorId: user.id, action: "password_change", entity: "profile", entityId: user.email });
+  // First sign-in with a temporary password: continue into the app.
+  if (row.forced) redirect("/dashboard");
   return { ok: true, message: "Password changed. Other devices have been signed out." };
 }
 

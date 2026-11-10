@@ -11,7 +11,7 @@ import { getDb, schema } from "@/db";
 import { getCurrentUser } from "@/lib/auth";
 import { fday, monthLabel, rp, rpk, ym } from "@/lib/format";
 import { repKpis, revenueBySegment } from "@/lib/queries/sales";
-import { now, ownedBy, seesAll } from "@/lib/scope";
+import { now, ownedBy, seesAll, visibleUserIds } from "@/lib/scope";
 import { segmentSeries } from "@/lib/segments";
 
 export const metadata: Metadata = { title: "Overview" };
@@ -25,7 +25,7 @@ export default async function DashboardPage() {
 
   const [kpis, revenue, [leads30], [pipeline], overdueTasks, pendingFees, expiringQuotes, hotLeads] = await Promise.all([
     repKpis(period),
-    revenueBySegment(period, 12, mine ? user.id : undefined),
+    revenueBySegment(period, 12, ownedBy(user, schema.orders.salesId)),
     db
       .select({ n: count() })
       .from(schema.leads)
@@ -40,7 +40,7 @@ export default async function DashboardPage() {
       .leftJoin(schema.users, eq(schema.users.id, schema.tasks.assigneeId))
       .where(
         and(
-          mine ? eq(schema.tasks.assigneeId, user.id) : undefined,
+          ownedBy(user, schema.tasks.assigneeId),
           inArray(schema.tasks.status, ["open", "in_progress", "waiting_approval"]),
           lt(schema.tasks.dueAt, today),
         ),
@@ -82,7 +82,8 @@ export default async function DashboardPage() {
       .limit(5),
   ]);
 
-  const scope = mine ? kpis.filter((k) => k.id === user.id) : kpis;
+  const visible = await visibleUserIds(user);
+  const scope = visible ? kpis.filter((k) => visible.has(k.id)) : kpis;
   const target = scope.reduce((s, k) => s + k.revenueTarget, 0);
   const actual = mine ? (scope[0]?.revenue ?? 0) : revenue.rows.filter((r) => r.month === period).reduce((s, r) => s + r.value, 0);
   const chart = segmentSeries(revenue.periods, revenue.rows);

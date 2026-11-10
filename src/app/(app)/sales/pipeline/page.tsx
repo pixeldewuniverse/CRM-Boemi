@@ -1,3 +1,4 @@
+import { isManager } from "@/lib/permissions";
 import type { Metadata } from "next";
 import { and, asc, eq, inArray } from "drizzle-orm";
 import { PageHeader } from "@/components/page/page-header";
@@ -15,7 +16,6 @@ import { now, ownedBy, seesAll } from "@/lib/scope";
 
 export const metadata: Metadata = { title: "Pipeline" };
 const HREF = "/sales/pipeline";
-const MANAGES = ["admin", "sales_manager"];
 
 export default async function PipelinePage({ searchParams }: PageProps<"/sales/pipeline">) {
   const user = await getCurrentUser();
@@ -28,7 +28,7 @@ export default async function PipelinePage({ searchParams }: PageProps<"/sales/p
     ? await db
         .select({ id: schema.users.id, name: schema.users.name })
         .from(schema.users)
-        .where(and(inArray(schema.users.role, ["sales", "sales_manager"]), eq(schema.users.active, true)))
+        .where(and(inArray(schema.users.role, ["sales", "sales_manager", "staff"]), eq(schema.users.active, true), ownedBy(user, schema.users.id)))
         .orderBy(asc(schema.users.name))
     : [];
   const owner = reps.some((r) => r.id === params.owner) ? (params.owner as string) : undefined;
@@ -83,7 +83,7 @@ export default async function PipelinePage({ searchParams }: PageProps<"/sales/p
           id: d.id,
           title: d.title,
           column: d.stage,
-          movable: d.ownerId === user.id || MANAGES.includes(user.role),
+          movable: d.ownerId === user.id || isManager(user),
           value: d.value ?? 0,
           close: d.close,
           account: d.account,

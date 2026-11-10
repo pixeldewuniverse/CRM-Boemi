@@ -70,11 +70,11 @@ export function AvatarForm({ name, avatarKey }: { name: string; avatarKey: strin
   );
 }
 
-export function PasswordForm({ hasPassword }: { hasPassword: boolean }) {
+export function PasswordForm({ hasPassword, stacked = false }: { hasPassword: boolean; stacked?: boolean }) {
   if (!hasPassword) return <p className="text-[13px] text-muted">You sign in without a password (invited or Google account). Ask an admin to set one up.</p>;
   return (
-    <InlineForm action={changePassword} submitLabel="Change password" resetOnSuccess className="grid gap-3 sm:grid-cols-3">
-      <TextField name="current" label="Current password" type="password" required autoComplete="current-password" />
+    <InlineForm action={changePassword} submitLabel="Change password" resetOnSuccess className={stacked ? "grid gap-3" : "grid gap-3 sm:grid-cols-3"}>
+      <TextField name="current" label={stacked ? "Temporary password" : "Current password"} type="password" required autoComplete="current-password" />
       <TextField name="next" label="New password" type="password" required autoComplete="new-password" hint="At least 10 characters." />
       <TextField name="confirm" label="Repeat new password" type="password" required autoComplete="new-password" />
     </InlineForm>
@@ -86,7 +86,7 @@ export type PrefRow = { type: string; label: string; inApp: boolean; email: bool
 export function NotificationPrefsForm({ rows }: { rows: PrefRow[] }) {
   return (
     <InlineForm action={saveNotificationPreferences} submitLabel="Save notification settings" className="block">
-      <div className="overflow-x-auto">
+      <div className="relative overflow-x-auto">
         <table className="tbl min-w-[520px] text-[13px]">
           <thead>
             <tr>
