@@ -84,7 +84,7 @@ drizzle/              file migrasi SQL (commit ke git)
 Struktur menu mengikuti demo Phase 1 (`demo.pixeldew.xyz`), didefinisikan di `src/lib/nav.ts`; setiap submenu punya halaman di `src/app/(app)/<menu>/<halaman>/page.tsx`.
 
 - **Dashboard, Sales, Marketing, Event, Database, Report, Setting** membaca database. Sales hanya melihat data miliknya; Setting hanya untuk Admin & Sales Manager.
-- **E-Commerce, Store (Later) dan Consignment (Add-on)** menampilkan data contoh statis (`src/lib/preview.ts`) dengan label *Preview* — belum ada tabel database.
+- **E-Commerce, Store (Later) dan Consignment (Add-on)** — modul Phase 2 dan selanjutnya — **disembunyikan** untuk sekarang: tidak muncul di menu dan pencarian, URL-nya dialihkan ke Dashboard (`src/proxy.ts`). Halamannya (data contoh statis dari `src/lib/preview.ts`) tetap ada di kode; tampilkan lagi dengan `SHOW_LATER_PHASES = true` di `src/lib/nav.ts`.
 - Detail akun 360°: `/database/accounts/[id]`. Export CSV: `/api/export/{leads|accounts|contacts|products|orders}`.
 
 ### Fitur CRUD (Batch 1)

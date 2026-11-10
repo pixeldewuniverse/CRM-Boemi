@@ -1,8 +1,10 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { HIDDEN_PREFIXES } from "@/lib/nav";
 import { SESSION_COOKIE } from "@/lib/session-cookie";
 
 /**
- * Optimistic check only: bounce visitors without a session cookie to /login.
+ * Optimistic check only: bounce visitors without a session cookie to /login,
+ * and send hidden (Phase 2+) menu URLs to the dashboard.
  * Real authorization happens in the Data Access Layer (src/lib/auth.ts).
  */
 export function proxy(request: NextRequest) {
@@ -11,6 +13,9 @@ export function proxy(request: NextRequest) {
     url.searchParams.set("next", request.nextUrl.pathname);
     return NextResponse.redirect(url);
   }
+  // Phase 2+ modules are hidden for now (see SHOW_LATER_PHASES in src/lib/nav.ts).
+  const path = request.nextUrl.pathname;
+  if (HIDDEN_PREFIXES.some((p) => path === p || path.startsWith(`${p}/`))) return NextResponse.redirect(new URL("/dashboard", request.url));
   return NextResponse.next();
 }
 

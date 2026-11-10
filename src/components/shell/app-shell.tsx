@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Suspense, useState, type ReactNode } from "react";
 import { Icon } from "@/components/icon";
-import { NAV, findNav } from "@/lib/nav";
+import { MENU, findNav } from "@/lib/nav";
 import { CommandPalette } from "./command-palette";
 
 type Slots = {
@@ -130,7 +130,7 @@ function SideNavView({ pathname, slots, onNavigate }: NavProps & { pathname: str
 
   return (
     <nav className="flex flex-col gap-0.5">
-      {NAV.map((cat) => {
+      {MENU.map((cat) => {
         const isOpen = open.has(cat.key);
         const isActive = current?.category.key === cat.key;
         return (

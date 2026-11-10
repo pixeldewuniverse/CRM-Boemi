@@ -173,6 +173,20 @@ export const NAV: NavCategory[] = [
   },
 ];
 
+/**
+ * Phase 2+ modules (badge "Later" / "Add-on": E-Commerce, Store, Consignment)
+ * are hidden for now: not in the menu or search, and their URLs redirect to
+ * the dashboard (src/proxy.ts). The pages stay in the code — set this to
+ * true to show them again.
+ */
+export const SHOW_LATER_PHASES = false;
+
+/** Categories shown in the menu. */
+export const MENU: NavCategory[] = SHOW_LATER_PHASES ? NAV : NAV.filter((c) => !c.badge);
+
+/** URL prefixes of hidden categories (used by the proxy). */
+export const HIDDEN_PREFIXES: string[] = SHOW_LATER_PHASES ? [] : NAV.filter((c) => c.badge).map((c) => `/${c.items[0].href.split("/")[1]}`);
+
 export type NavMatch = { category: NavCategory; item: NavItem };
 
 const BY_HREF = new Map<string, NavMatch>(
