@@ -7,6 +7,8 @@ import { Pill } from "@/components/ui/pill";
 import { getDb, schema } from "@/db";
 import { ACTIVITY_TYPES, LEAD_SOURCES, LOST_REASONS, SEGMENTS, STAGE, STAGES } from "@/lib/labels";
 import { PRICE_TIERS, SEGMENT_TIER } from "@/lib/pricing";
+import { getSetting } from "@/lib/settings";
+import { StageProbabilityForm } from "@/components/forms/settings-forms";
 
 export const metadata: Metadata = { title: "Master Data" };
 const HREF = "/settings/master-data";
@@ -28,6 +30,7 @@ function List({ title, items }: { title: string; items: readonly string[] }) {
 export default async function MasterDataPage() {
   const { denied } = await guard(HREF);
   if (denied) return denied;
+  const probabilities = await getSetting("pipeline");
   const criteria = await getDb().select().from(schema.qualificationCriteria).orderBy(asc(schema.qualificationCriteria.createdAt));
   const totalWeight = criteria.filter((c) => c.active).reduce((s, c) => s + c.weight, 0);
 
@@ -78,17 +81,8 @@ export default async function MasterDataPage() {
             </tbody>
           </table>
         </Panel>
-        <Panel title="Deal stages" flush>
-          <table className="tbl">
-            <tbody>
-              {STAGES.map((s) => (
-                <tr key={s}>
-                  <td className="font-semibold">{STAGE[s].label}</td>
-                  <td className="num">{STAGE[s].probability}% probability</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <Panel title="Deal stages · win probability" description="Used for the weighted pipeline and the Sales Forecast. Changes apply to every open deal that doesn't have its own probability.">
+          <StageProbabilityForm v={probabilities} stages={STAGES.filter((s) => s !== "won" && s !== "lost").map((s) => ({ key: s, label: STAGE[s].label }))} />
         </Panel>
         <List title="Lead sources" items={LEAD_SOURCES} />
         <List title="Lost reasons" items={LOST_REASONS} />

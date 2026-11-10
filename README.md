@@ -186,6 +186,20 @@ Yang boleh membuat board/project: Super Admin, Department Head, Project Manager,
 
 Migrasi Batch 5a: `drizzle/0009_boards.sql` (9 tabel board + enum). Tidak ada library baru (`@dnd-kit/sortable` sudah ada sejak Batch 4).
 
+### Reporting dasar (Batch 6)
+
+- **Sales Forecast** (`/sales/forecast`, menu Sales; kartu *Forecast* di Overview): per bulan berdasarkan `expected_close_on`, per rep & total, 3/6/12 bulan ke depan.
+  - **Target** = `kpi_targets` metric `revenue`; **Actual** = order (tanpa cancelled) per bulan; **Best case** = semua deal terbuka; **Commit** = deal dengan probability ≥ 75%; **Weighted** = nilai × probability; **Projected** = actual + weighted.
+  - Probability default per stage diatur di **Setting → Master Data** (`app_settings.pipeline`; Won 100%, Lost 0%). Deal boleh override di tabel forecast (kosongkan = kembali ke default); kolom baru `opportunities.probability_override`. Pipeline & funnel ikut memakai probability efektif ini.
+  - Deal dengan tanggal close yang sudah lewat atau tanpa tanggal tidak dihitung, dan disebutkan di atas grafik.
+  - Scope sama dengan pipeline: sales melihat deal sendiri, Department Head timnya, Executive/Admin semua.
+- **Project Performance** (`/report/projects`): dari board `kind=project` yang boleh dilihat user — progress (kategori status Done), on-time (item Done yang selesai ≤ due date), item overdue, project terlambat (masih terbuka & lewat due date), budget vs biaya aktual; ringkasan per departemen.
+- **Department KPI** (`/report/departments`, periode bulan ini / bulan lalu / kuartal / tahun): per departemen — orang, revenue, won/lost & win rate, leads & konversi ke qualified, project & on-time, task sales + item project yang overdue. Panel Marketing: leads per sumber; untuk Admin/Executive juga biaya marketing (biaya aktual event + budget campaign yang mulai di periode) dan biaya per lead. Department Head hanya melihat departemen yang ia pimpin.
+- **Executive Dashboard**: untuk Executive & Admin, Overview menambah kartu **Projects** (open, late, rata-rata progress, item overdue, 5 project paling berisiko) dan **Waiting for approval** (semua request pending, paling lama di atas). Tampilan sales tidak berubah selain kartu Forecast.
+- **Export CSV**: `/api/export/forecast?months=&rep=`, `/api/export/projects`, `/api/export/departments?range=` — scope sama dengan halaman; laporan Report mengikuti aturan role menunya (403 bila tidak boleh) dan tercatat di Audit Trail.
+
+Grafik memakai komponen yang sudah ada (`ColumnChart`/`BarList`, `Meter` — kini dengan mode `spend` untuk budget, `Stats`). Migrasi Batch 6: `drizzle/0010_forecast_probability.sql`. Seed (`ensureBatch6Demo`): target revenue 3 bulan ke depan, 2 deal dengan probability sendiri, project terlambat & over budget (Website Relaunch, Marketing) dan project selesai tepat waktu (Sanur Spa pilot).
+
 ## Data demo
 
 `src/db/seed.ts` mengisi data dummy dari demo (`src/db/demo/demo-data.json`): 8 user persona, 12 akun, 14 produk, lead, deal, quotation, order + riwayat 12 bulan, visit, task, target, campaign, event, konten. Tanggal digeser supaya "hari ini" di demo = hari seed dijalankan.

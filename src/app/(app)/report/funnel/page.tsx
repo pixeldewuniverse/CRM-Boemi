@@ -9,6 +9,7 @@ import { getDb, schema } from "@/db";
 import { num, pct, rp, rpk } from "@/lib/format";
 import { STAGE, STAGES } from "@/lib/labels";
 import { ownedBy } from "@/lib/scope";
+import { stageProbabilities } from "@/lib/reports/forecast";
 
 export const metadata: Metadata = { title: "Pipeline & Funnel" };
 
@@ -20,7 +21,14 @@ export default async function FunnelPage() {
   const l = schema.leads;
   const [stages, lost, leadStatus] = await Promise.all([
     db
-      .select({ stage: o.stage, n: sql<number>`count(*)`.mapWith(Number), value: sql<number>`coalesce(sum(${o.value}),0)`.mapWith(Number) })
+      .select({
+        stage: o.stage,
+        n: sql<number>`count(*)`.mapWith(Number),
+        value: sql<number>`coalesce(sum(${o.value}),0)`.mapWith(Number),
+        // Deals with their own probability vs. deals on the stage default.
+        setW: sql<number>`coalesce(sum(case when ${o.probabilityOverride} then ${o.value} * ${o.probability} else 0 end),0)`.mapWith(Number),
+        defaultValue: sql<number>`coalesce(sum(case when ${o.probabilityOverride} then 0 else ${o.value} end),0)`.mapWith(Number),
+      })
       .from(o)
       .where(ownedBy(user, o.ownerId))
       .groupBy(o.stage),
@@ -35,7 +43,9 @@ export default async function FunnelPage() {
       .where(ownedBy(user, l.ownerId))
       .groupBy(l.status),
   ]);
-  const get = (s: string) => stages.find((x) => x.stage === s) ?? { n: 0, value: 0 };
+  const probs = await stageProbabilities();
+  const get = (s: string) => stages.find((x) => x.stage === s) ?? { n: 0, value: 0, setW: 0, defaultValue: 0 };
+  const weightedOf = (s: string) => (get(s).setW + get(s).defaultValue * probs[s]) / 100;
   const won = get("won");
   const lostN = get("lost").n;
   const open = STAGES.filter((s) => s !== "won" && s !== "lost");
@@ -96,8 +106,8 @@ export default async function FunnelPage() {
                 <td className="font-semibold">{STAGE[s].label}</td>
                 <td className="num">{get(s).n}</td>
                 <td className="num">{rp(get(s).value)}</td>
-                <td className="num">{STAGE[s].probability}%</td>
-                <td className="num">{rp((get(s).value * STAGE[s].probability) / 100)}</td>
+                <td className="num">{probs[s]}%</td>
+                <td className="num">{rp(weightedOf(s))}</td>
               </tr>
             ))}
           </tbody>

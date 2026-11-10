@@ -146,6 +146,7 @@ async function main() {
         await ensureBatch3Demo(tx as unknown as Db);
         await ensureBatch4Demo(tx as unknown as Db);
         await ensureBatch5Demo(tx as unknown as Db);
+        await ensureBatch6Demo(tx as unknown as Db);
       });
       return console.log("Demo data already present — skipping seed (batch 1 demo data checked).");
     }
@@ -168,6 +169,7 @@ async function main() {
       await ensureBatch3Demo(tx as unknown as Db);
       await ensureBatch4Demo(tx as unknown as Db);
       await ensureBatch5Demo(tx as unknown as Db);
+      await ensureBatch6Demo(tx as unknown as Db);
     });
     console.log("Seeded demo data: 8 users, 14 products, 12 accounts, leads, deals, quotations, orders (+12-month history), visits, tasks, campaigns, events, content.");
   } finally {
@@ -632,6 +634,87 @@ async function ensureBatch5Demo(db: Db) {
     [],
     uid,
   );
+}
+
+/**
+ * Batch 6 demo (reporting): revenue targets for the next three months, two
+ * deals with their own probability, and two more projects so the project
+ * report has a late, over-budget one and a finished one. Idempotent.
+ */
+async function ensureBatch6Demo(db: Db) {
+  const thisMonth = D("2026-11-01").slice(0, 7);
+  const next = (p: string, n: number) => {
+    const [y, m] = p.split("-").map(Number);
+    const d = new Date(Date.UTC(y, m - 1 + n, 1));
+    return d.toISOString().slice(0, 7);
+  };
+  const current = await db.select().from(schema.kpiTargets).where(and(eq(schema.kpiTargets.metric, "revenue"), eq(schema.kpiTargets.period, thisMonth)));
+  const growth = [1.05, 1.1, 1.2]; // December gifting season, then Q1 restock
+  for (const t of current)
+    for (let i = 1; i <= 3; i++)
+      await db
+        .insert(schema.kpiTargets)
+        .values({ userId: t.userId, metric: "revenue", period: next(thisMonth, i), target: Math.round((t.target * growth[i - 1]) / 1e6) * 1e6 })
+        .onConflictDoNothing();
+
+  const o = schema.opportunities;
+  const overrides: [string, number][] = [["Amenities Q1 2027%", 85]];
+  for (const [title, p] of overrides) await db.update(o).set({ probability: p, probabilityOverride: true }).where(and(sql`${o.title} ilike ${title}`, eq(o.probabilityOverride, false), sql`${o.stage} not in ('won','lost')`));
+  // One open deal whose rep is less sure than the stage says.
+  const [low] = await db.select({ id: o.id }).from(o).where(and(eq(o.stage, "negotiation"), eq(o.probabilityOverride, false), sql`${o.title} not ilike 'Amenities Q1%'`)).limit(1);
+  if (low) await db.update(o).set({ probability: 40, probabilityOverride: true }).where(eq(o.id, low.id));
+
+  const NAME = "Website Relaunch & Online Catalogue";
+  const [exists] = await db.select({ id: schema.boards.id }).from(schema.boards).where(eq(schema.boards.name, NAME));
+  if (exists) return;
+  const users = await db.select({ id: schema.users.id, email: schema.users.email }).from(schema.users);
+  const uid = (e: string) => users.find((u) => u.email === e)?.id;
+  if (!uid("marketing@example.test")) return;
+  const code = async () => {
+    const year = D("2026-11-01").slice(0, 4);
+    const rows = (await db.execute<{ last_seq: number }>(sql`
+      insert into document_counters (doc_type, period, last_seq) values ('project', ${year}, 1)
+      on conflict (doc_type, period) do update set last_seq = document_counters.last_seq + 1 returning last_seq`)) as unknown as { last_seq: number }[];
+    return `PRJ-${year}-${String(Number(rows[0].last_seq)).padStart(3, "0")}`;
+  };
+  const M = "marketing@example.test";
+  const S = "designer@example.test";
+  const P = "pm@example.test";
+  // Late and over budget (Marketing).
+  await seedBoard(
+    db,
+    { kind: "project", name: NAME, description: "New website with the B2B catalogue and price-tier login. Agency invoices came in above plan.", dept: "MARKETING", owner: M, code: await code(), status: "active", budget: 30_000_000, actualCost: 34_500_000, startOn: D("2026-09-01"), dueOn: D("2026-10-31"), priority: "high" },
+    [ { name: "Design", color: "c2" }, { name: "Build", color: "c3" }, { name: "Launch", color: "green" } ],
+    [],
+    [ [M, "owner", false], [S, "editor", false], [P, "viewer", false] ],
+    [
+      { g: 0, name: "Sitemap & content plan", status: "done", people: [M], start: "2026-09-01", due: "2026-09-10", est: 8 },
+      { g: 0, name: "Homepage & catalogue design", status: "done", people: [S], start: "2026-09-11", due: "2026-09-30", est: 30 },
+      { g: 1, name: "Product photos (14 SKUs)", status: "done", people: [S], start: "2026-09-20", due: "2026-10-05", est: 16 },
+      { g: 1, name: "Catalogue pages & price-tier login", status: "stuck", people: [M], start: "2026-10-01", due: "2026-10-24", est: 40, prio: "critical" },
+      { g: 1, name: "Copy in English & Bahasa", status: "working", people: [M, S], start: "2026-10-10", due: "2026-10-28", est: 12 },
+      { g: 2, name: "Launch announcement", status: "todo", people: [M], start: "2026-10-30", due: "2026-10-31", est: 4, ms: true },
+    ],
+    [ [0, 1, "FS", 0], [1, 3, "FS", 0], [3, 5, "FS", 0] ],
+    uid,
+  );
+  // Finished on time (Sales).
+  await seedBoard(
+    db,
+    { kind: "project", name: "Sanur Spa — Signature Scent Pilot", description: "Two-week lobby scent pilot for a spa partner. Completed.", dept: "SALES", owner: P, code: await code(), status: "active", budget: 8_000_000, actualCost: 7_200_000, startOn: D("2026-10-01"), dueOn: D("2026-10-20"), priority: "medium" },
+    [ { name: "Pilot", color: "c1" } ],
+    [],
+    [ [P, "owner", false], ["sales@example.test", "editor", false] ],
+    [
+      { g: 0, name: "Pick three scent candidates", status: "done", people: ["sales@example.test"], start: "2026-10-01", due: "2026-10-03", est: 3 },
+      { g: 0, name: "Install diffusers", status: "done", people: [P], start: "2026-10-05", due: "2026-10-06", est: 4 },
+      { g: 0, name: "Guest feedback survey", status: "done", people: ["sales@example.test"], start: "2026-10-07", due: "2026-10-17", est: 5 },
+      { g: 0, name: "Pilot report to the spa owner", status: "done", people: [P], start: "2026-10-18", due: "2026-10-20", est: 3 },
+    ],
+    [ [0, 1, "FS", 0], [1, 2, "FS", 0], [2, 3, "FS", 0] ],
+    uid,
+  );
+  await db.update(schema.boards).set({ projectStatus: "completed" }).where(eq(schema.boards.name, "Sanur Spa — Signature Scent Pilot"));
 }
 
 /** Personas added after the first demo seed (safe to run on every deploy). */

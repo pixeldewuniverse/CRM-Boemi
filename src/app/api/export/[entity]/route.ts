@@ -4,17 +4,28 @@ import { audit } from "@/lib/audit";
 import { verifyUser } from "@/lib/auth";
 import { toCsv } from "@/lib/csv";
 import { customerScope } from "@/lib/customers";
-import { ymd } from "@/lib/format";
+import { ym, ymd } from "@/lib/format";
+import { canOpen, findNav } from "@/lib/nav";
+import { departmentKpis, RANGES, type Range } from "@/lib/reports/departments";
+import { salesForecast } from "@/lib/reports/forecast";
+import { projectPerformance } from "@/lib/reports/projects";
 import { ownedBy } from "@/lib/scope";
 
-const EXPORTABLE = ["leads", "accounts", "contacts", "products", "orders"] as const;
+const EXPORTABLE = ["leads", "accounts", "contacts", "products", "orders", "forecast", "projects", "departments"] as const;
+/** Report exports follow the role rule of their page. */
+const REPORT_PAGE: Partial<Record<Entity, string>> = { projects: "/report/projects", departments: "/report/departments" };
 type Entity = (typeof EXPORTABLE)[number];
 
 /** CSV download of one entity, limited to what the signed-in user can see. */
-export async function GET(_req: Request, ctx: RouteContext<"/api/export/[entity]">) {
+export async function GET(req: Request, ctx: RouteContext<"/api/export/[entity]">) {
   const user = await verifyUser();
   const { entity } = await ctx.params;
   if (!EXPORTABLE.includes(entity as Entity)) return Response.json({ error: "Unknown entity" }, { status: 404 });
+  const page = REPORT_PAGE[entity as Entity];
+  const navItem = page ? findNav(page)?.item : undefined;
+  if (navItem && !canOpen(navItem, user.role)) return Response.json({ error: "Your role can't export this report." }, { status: 403 });
+  const q = new URL(req.url).searchParams;
+  const today = new Date();
 
   const db = getDb();
   let headers: string[] = [];
@@ -74,6 +85,29 @@ export async function GET(_req: Request, ctx: RouteContext<"/api/export/[entity]
         .orderBy(desc(o.orderedAt));
       headers = ["Order no", "Date", "Account", "Sales", "Status", "Subtotal", "Discount %", "PPN", "Total", "Payment", "Paid", "Reference"];
       rows = data.map(({ o: r, account, sales }) => [r.orderNo, r.orderedAt, account, sales, r.status, r.subtotal, r.discountPct, r.taxAmount, r.total, r.paymentStatus, r.paidAmount, r.reference]);
+      break;
+    }
+    case "forecast": {
+      const months = [3, 6, 12].includes(Number(q.get("months"))) ? Number(q.get("months")) : 6;
+      const f = await salesForecast(user, ym(today), months, q.get("rep") ?? undefined);
+      headers = ["Month", "Rep", "Target", "Actual", "Commit", "Weighted", "Best case", "Projected"];
+      rows = f.months.map((m) => [m.period, f.rep ? f.repOptions.find((r) => r.id === f.rep)?.name : "All", m.target, m.actual, m.commit, Math.round(m.weighted), m.best, Math.round(m.actual + m.weighted)]);
+      rows.push([]);
+      rows.push(["Deal", "Account", "Owner", "Stage", "Close", "Value", "Probability %", "Weighted"]);
+      for (const d of f.deals) rows.push([d.title, d.account, d.owner, d.stage, d.closeOn ?? "", d.value, d.probability, d.bucket === "overdue" || d.bucket === "none" ? "" : Math.round(d.weighted)]);
+      break;
+    }
+    case "projects": {
+      const { rows: list } = await projectPerformance(user, ymd(today));
+      headers = ["Code", "Project", "Department", "Owner", "Status", "Late", "Due", "Items", "Done", "Progress %", "On-time %", "Overdue items", "Budget", "Actual cost"];
+      rows = list.map((r) => [r.code, r.name, r.department, r.owner, r.status, r.late ? "yes" : "no", r.dueOn, r.items, r.done, r.progress, r.doneWithDue ? Math.round((r.doneOnTime / r.doneWithDue) * 100) : "", r.overdue, r.budget, r.actualCost]);
+      break;
+    }
+    case "departments": {
+      const range = (q.get("range") ?? "month") in RANGES ? ((q.get("range") ?? "month") as Range) : "month";
+      const k = await departmentKpis(user, range, ym(today), ymd(today), today);
+      headers = ["Department", "Period", "People", "Revenue", "Won", "Lost", "Win rate %", "Leads", "Qualified", "Lead conversion %", "Projects", "Late projects", "Project on-time %", "Overdue tasks", "Overdue project items"];
+      rows = k.rows.map((r) => [r.name, k.label, r.people, r.revenue, r.won, r.lost, r.winRate ?? "", r.leads, r.qualified, r.leadConversion ?? "", r.projects, r.lateProjects, r.projectOnTime ?? "", r.overdueTasks, r.overdueItems]);
       break;
     }
   }

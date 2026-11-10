@@ -15,6 +15,7 @@ import { and } from "drizzle-orm";
 import { notify } from "@/lib/notifications";
 import { managersOf } from "@/lib/notifications/recipients";
 import { rp } from "@/lib/format";
+import { stageProbabilities } from "@/lib/reports/forecast";
 
 
 const Input = z.object({
@@ -36,7 +37,7 @@ export async function moveDeal(input: z.input<typeof Input>): Promise<MoveResult
   const db = getDb();
   const o = schema.opportunities;
   const [deal] = await db
-    .select({ ownerId: o.ownerId, stage: o.stage, title: o.title, value: o.value, account: schema.customers.name })
+    .select({ ownerId: o.ownerId, stage: o.stage, title: o.title, value: o.value, probabilityOverride: o.probabilityOverride, account: schema.customers.name })
     .from(o)
     .innerJoin(schema.customers, eq(schema.customers.id, o.customerId))
     .where(eq(o.id, dealId));
@@ -48,7 +49,12 @@ export async function moveDeal(input: z.input<typeof Input>): Promise<MoveResult
 
   await db
     .update(o)
-    .set({ stage, probability: STAGE[stage].probability, lostReason: stage === "lost" ? lostReason : null })
+    // Stored probability follows the stage default unless it was set on the deal; won/lost always end at 100/0.
+    .set({
+      stage,
+      lostReason: stage === "lost" ? lostReason : null,
+      ...(stage === "won" || stage === "lost" ? { probability: stage === "won" ? 100 : 0, probabilityOverride: false } : deal.probabilityOverride ? {} : { probability: (await stageProbabilities())[stage] }),
+    })
     .where(eq(o.id, dealId));
 
   await audit({
@@ -108,11 +114,35 @@ export async function createDeal(_prev: FormState, fd: FormData): Promise<FormSt
     ownerId,
     title: d.title,
     stage: d.stage,
-    probability: STAGE[d.stage].probability,
+    probability: (await stageProbabilities())[d.stage],
     value: parseRupiah(d.value) ?? 0,
     expectedCloseOn: d.closeOn,
   });
   await audit({ actorId: user.id, action: "create", entity: "opportunity", entityId: d.title, changes: { account: account.name, stage: d.stage } });
   refresh();
   return { ok: true, message: `Deal ${d.title} added.` };
+}
+
+const Prob = z.object({ dealId: z.uuid(), probability: z.string().optional() });
+
+/** Sets (or clears, back to the stage default) the win probability of one open deal. */
+export async function setDealProbability(_prev: FormState, fd: FormData): Promise<FormState> {
+  const user = await verifyUser();
+  const parsed = Prob.safeParse(formObject(fd));
+  if (!parsed.success) return { ok: false, error: "Invalid request." };
+  const raw = parsed.data.probability?.trim();
+  const value = raw ? Number(raw.replace(",", ".")) : null;
+  if (value !== null && (!Number.isInteger(value) || value < 0 || value > 100)) return { ok: false, error: "Enter a whole number from 0 to 100.", fieldErrors: { probability: "0–100" } };
+  const db = getDb();
+  const o = schema.opportunities;
+  const [deal] = await db.select({ ownerId: o.ownerId, stage: o.stage, title: o.title, probability: o.probability, override: o.probabilityOverride }).from(o).where(eq(o.id, parsed.data.dealId));
+  if (!deal) return { ok: false, error: "Deal not found." };
+  if (!(await mayManage(user, deal.ownerId))) return { ok: false, error: "Only the deal owner or a sales manager can change its probability." };
+  if (deal.stage === "won" || deal.stage === "lost") return { ok: false, error: "Closed deals keep 100% / 0%." };
+  const probs = await stageProbabilities();
+  const next = value ?? probs[deal.stage];
+  await db.update(o).set({ probability: next, probabilityOverride: value !== null }).where(eq(o.id, parsed.data.dealId));
+  await audit({ actorId: user.id, action: "update", entity: "opportunity", entityId: deal.title, changes: { probability: [deal.override ? `${deal.probability}%` : "stage default", value === null ? `stage default (${next}%)` : `${next}%`] } });
+  refresh();
+  return { ok: true, message: value === null ? `Back to the stage default (${next}%).` : `Probability set to ${next}%.` };
 }

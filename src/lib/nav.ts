@@ -60,6 +60,7 @@ export const NAV: NavCategory[] = [
     items: [
       { key: "leads", href: "/sales/leads", label: "Leads", description: "New prospects from the website, Instagram, WhatsApp, events and referrals. Qualify a lead to turn it into an Account + Deal." },
       { key: "pipeline", href: "/sales/pipeline", label: "Pipeline", description: "Deals by stage, from first contact to won or lost." },
+      { key: "forecast", href: "/sales/forecast", label: "Sales Forecast", description: "Expected revenue per month: weighted pipeline (value × probability), commit and best case against target and actual orders." },
       { key: "quotations", href: "/sales/quotations", label: "Quotations", description: "Wholesale quotations with price tiers applied automatically by account segment." },
       { key: "orders", href: "/sales/orders", label: "Orders", description: "B2B orders with deposits, final payments and delivery status." },
       { key: "visits", href: "/sales/visits", label: "Visits", description: "Sales check-ins with GPS and photo. Visit fees go to Finance for approval." },
@@ -150,6 +151,8 @@ export const NAV: NavCategory[] = [
       { key: "rep-funnel", href: "/report/funnel", label: "Pipeline & Funnel", description: "Conversion between stages and win rate.", roles: REPORTING },
       { key: "rep-ar", href: "/report/receivables", label: "Receivables & Deposits", description: "Outstanding payments and deposits per account.", roles: [...REPORTING, "finance"] },
       { key: "rep-marketing", href: "/report/marketing", label: "Marketing & Event", description: "Campaign and event results against cost.", roles: REPORTING },
+      { key: "rep-projects", href: "/report/projects", label: "Project Performance", description: "Projects per department: progress, on-time delivery, overdue items and budget vs actual.", roles: REPORTING },
+      { key: "rep-departments", href: "/report/departments", label: "Department KPI", description: "Each department at a glance: revenue and conversion, leads and cost per lead, on-time projects and overdue work.", roles: REPORTING },
       { key: "rep-visits", href: "/report/visits", label: "Visits & Fees", description: "Visit volume per rep and visit fees paid.", roles: REPORTING },
     ],
   },

@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { isManager } from "@/lib/permissions";
 import type { Metadata } from "next";
 import { and, asc, eq, inArray } from "drizzle-orm";
@@ -6,12 +7,12 @@ import { FilterChips } from "@/components/ui/filter-chips";
 import { Stats } from "@/components/ui/stats";
 import { getDb, schema } from "@/db";
 import { getCurrentUser } from "@/lib/auth";
+import { effectiveProbability, stageProbabilities } from "@/lib/reports/forecast";
 import { NewDealButton } from "@/components/forms/sales-forms";
 import { canSell } from "@/lib/permissions";
 import { accountOptions, repOptions } from "@/lib/queries/options";
 import { PipelineBoard } from "@/components/board/pipeline-board";
 import { pct, rpk, ymd } from "@/lib/format";
-import { STAGE } from "@/lib/labels";
 import { now, ownedBy, seesAll } from "@/lib/scope";
 
 export const metadata: Metadata = { title: "Pipeline" };
@@ -39,6 +40,8 @@ export default async function PipelinePage({ searchParams }: PageProps<"/sales/p
       title: o.title,
       stage: o.stage,
       value: o.value,
+      probability: o.probability,
+      probabilityOverride: o.probabilityOverride,
       close: o.expectedCloseOn,
       lostReason: o.lostReason,
       ownerId: o.ownerId,
@@ -54,7 +57,8 @@ export default async function PipelinePage({ searchParams }: PageProps<"/sales/p
 
   const open = deals.filter((d) => d.stage !== "won" && d.stage !== "lost");
   const openValue = open.reduce((s, d) => s + (d.value ?? 0), 0);
-  const weighted = open.reduce((s, d) => s + ((d.value ?? 0) * STAGE[d.stage].probability) / 100, 0);
+  const probs = await stageProbabilities();
+  const weighted = open.reduce((s, d) => s + ((d.value ?? 0) * effectiveProbability(d, probs)) / 100, 0);
   const won = deals.filter((d) => d.stage === "won").length;
   const lost = deals.filter((d) => d.stage === "lost").length;
 
@@ -64,7 +68,7 @@ export default async function PipelinePage({ searchParams }: PageProps<"/sales/p
       <Stats
         items={[
           { label: "Open pipeline", value: rpk(openValue), hint: `${open.length} open deals` },
-          { label: "Weighted forecast", value: rpk(weighted), hint: "Value × stage probability" },
+          { label: "Weighted forecast", value: rpk(weighted), hint: <Link href="/sales/forecast" className="hover:text-accent">Value × probability · see forecast →</Link> },
           { label: "Won", value: won, tone: "ok" },
           { label: "Win rate", value: pct(won + lost ? (won / (won + lost)) * 100 : null), hint: `${won} won · ${lost} lost` },
         ]}
@@ -79,6 +83,7 @@ export default async function PipelinePage({ searchParams }: PageProps<"/sales/p
       )}
       <PipelineBoard
         today={ymd(today)}
+        probabilities={probs}
         deals={deals.map((d) => ({
           id: d.id,
           title: d.title,

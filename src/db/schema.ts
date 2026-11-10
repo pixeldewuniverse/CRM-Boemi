@@ -402,6 +402,8 @@ export const opportunities = pgTable(
     stage: opportunityStageEnum("stage").notNull().default("new"),
     value: rupiah("value"),
     probability: integer("probability"),
+    /** true = `probability` was set on this deal; false = use the stage default from Master Data. */
+    probabilityOverride: boolean("probability_override").notNull().default(false),
     expectedCloseOn: date("expected_close_on"),
     lostReason: text("lost_reason"),
     createdAt: createdAt(),

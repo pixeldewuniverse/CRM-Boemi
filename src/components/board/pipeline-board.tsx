@@ -18,7 +18,7 @@ export type DealCard = KanbanCard & {
 
 type Move = { id: string; column: string; lostReason?: string | null };
 
-export function PipelineBoard({ deals, today }: { deals: DealCard[]; today: string }) {
+export function PipelineBoard({ deals, today, probabilities }: { deals: DealCard[]; today: string; probabilities: Record<string, number> }) {
   const [pending, startTransition] = useTransition();
   const [optimistic, apply] = useOptimistic(deals, (state, m: Move) =>
     state.map((d) => (d.id === m.id ? { ...d, column: m.column, lostReason: m.lostReason ?? null } : d)),
@@ -47,7 +47,7 @@ export function PipelineBoard({ deals, today }: { deals: DealCard[]; today: stri
 
   const columns = STAGES.map((s) => {
     const sum = optimistic.filter((d) => d.column === s).reduce((t, d) => t + d.value, 0);
-    return { key: s, label: STAGE[s].label, meta: `${rpk(sum)} · ${STAGE[s].probability}%` };
+    return { key: s, label: STAGE[s].label, meta: `${rpk(sum)} · ${probabilities[s] ?? STAGE[s].probability}%` };
   });
 
   return (

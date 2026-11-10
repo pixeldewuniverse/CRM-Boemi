@@ -9,7 +9,9 @@ import { Empty, Panel } from "@/components/ui/panel";
 import { Stats } from "@/components/ui/stats";
 import { getDb, schema } from "@/db";
 import { getCurrentUser } from "@/lib/auth";
-import { fday, monthLabel, rp, rpk, ym } from "@/lib/format";
+import { fday, monthLabel, rp, rpk, ym, ymd } from "@/lib/format";
+import { projected, salesForecast } from "@/lib/reports/forecast";
+import { projectPerformance } from "@/lib/reports/projects";
 import { repKpis, revenueBySegment } from "@/lib/queries/sales";
 import { now, ownedBy, seesAll, visibleUserIds } from "@/lib/scope";
 import { segmentSeries } from "@/lib/segments";
@@ -82,6 +84,20 @@ export default async function DashboardPage() {
       .limit(5),
   ]);
 
+  const exec = user.role === "admin" || user.role === "executive";
+  const [forecast, projects, approvals] = await Promise.all([
+    salesForecast(user, period, 1),
+    exec ? projectPerformance(user, ymd(today), { includeClosed: false }) : null,
+    exec
+      ? db
+          .select({ id: schema.approvalRequests.id, title: schema.approvalRequests.title, amount: schema.approvalRequests.amount, type: schema.approvalRequests.entityType, link: schema.approvalRequests.link, at: schema.approvalRequests.createdAt, who: schema.users.name, step: schema.approvalActions.label })
+          .from(schema.approvalRequests)
+          .leftJoin(schema.users, eq(schema.users.id, schema.approvalRequests.requesterId))
+          .leftJoin(schema.approvalActions, and(eq(schema.approvalActions.requestId, schema.approvalRequests.id), eq(schema.approvalActions.position, schema.approvalRequests.currentStep)))
+          .where(eq(schema.approvalRequests.status, "pending"))
+          .orderBy(asc(schema.approvalRequests.createdAt))
+      : [],
+  ]);
   const visible = await visibleUserIds(user);
   const scope = visible ? kpis.filter((k) => visible.has(k.id)) : kpis;
   const target = scope.reduce((s, k) => s + k.revenueTarget, 0);
@@ -96,6 +112,7 @@ export default async function DashboardPage() {
         description={`${monthLabel(period)} so far${mine ? " — your accounts only" : ""}. Target vs actual, and what needs attention today.`}
       />
       <Stats
+        cols={5}
         items={[
           {
             label: `Revenue · ${monthLabel(period, true)} to date`,
@@ -103,6 +120,11 @@ export default async function DashboardPage() {
             hint: target ? <Meter value={actual} max={target} label="Revenue vs target" /> : "No target set",
           },
           { label: "Open pipeline", value: rpk(pipeline.value), hint: `${pipeline.n} open deals` },
+          {
+            label: `Forecast · ${monthLabel(period, true)}`,
+            value: <Link href="/sales/forecast" className="hover:text-accent">{rpk(projected(forecast.total))}</Link>,
+            hint: forecast.total.target ? <Meter value={projected(forecast.total)} max={forecast.total.target} label="Forecast vs target" /> : `Actual ${rpk(forecast.total.actual)} + weighted ${rpk(forecast.total.weighted)}`,
+          },
           { label: "New leads · 30 days", value: leads30.n },
           {
             label: "Needs attention",
@@ -160,6 +182,72 @@ export default async function DashboardPage() {
           )}
         </Panel>
       </div>
+
+      {projects && (
+        <div className="grid gap-5 xl:grid-cols-2">
+          <Panel title="Projects" description="Open projects across the company." actions={<Link href="/report/projects" className="text-[13px] font-semibold text-accent">Project report →</Link>}>
+            <div className="grid grid-cols-2 gap-3 text-[13px] sm:grid-cols-4">
+              {[
+                { l: "Open", v: projects.totals.open },
+                { l: "Late", v: projects.totals.late, bad: projects.totals.late > 0 },
+                { l: "Avg. progress", v: `${projects.totals.avgProgress}%` },
+                { l: "Overdue items", v: projects.totals.overdue, bad: projects.totals.overdue > 0 },
+              ].map((x) => (
+                <div key={x.l}>
+                  <p className="text-xs text-muted">{x.l}</p>
+                  <p className={`text-xl font-bold tabular-nums ${x.bad ? "text-bad" : ""}`}>{x.v}</p>
+                </div>
+              ))}
+            </div>
+            <ul className="mt-4 divide-y divide-line text-[13px]">
+              {projects.rows
+                .filter((r) => ["draft", "pending_approval", "active", "on_hold"].includes(r.status))
+                .sort((a, b) => Number(b.late) - Number(a.late) || b.overdue - a.overdue)
+                .slice(0, 5)
+                .map((r) => (
+                  <li key={r.id} className="flex items-center gap-3 py-2">
+                    <Link href={`/projects/${r.id}`} className="min-w-0 flex-1 hover:text-accent">
+                      <p className="truncate font-semibold">{r.name}</p>
+                      <p className="text-xs text-muted">
+                        {[r.code, r.department].filter(Boolean).join(" · ")}
+                        {r.overdue ? ` · ${r.overdue} overdue` : ""}
+                      </p>
+                    </Link>
+                    {r.late && <span className="pill bg-bad-soft text-bad">Late</span>}
+                    <span className="w-36">
+                      <Meter value={r.done} max={r.items || 1} label={`${r.name} progress`} />
+                    </span>
+                  </li>
+                ))}
+              {!projects.rows.length && <li className="py-2 text-muted">No projects yet.</li>}
+            </ul>
+          </Panel>
+          <Panel title={`Waiting for approval · ${approvals.length}`} description="Every pending request in the company, oldest first." actions={<Link href="/approvals" className="text-[13px] font-semibold text-accent">Approvals →</Link>} flush>
+            {approvals.length === 0 ? (
+              <Empty>Nothing waiting.</Empty>
+            ) : (
+              <ul className="divide-y divide-line text-[13px]">
+                {approvals.slice(0, 6).map((a) => {
+                  const days = Math.floor((today.getTime() - a.at.getTime()) / 86_400_000);
+                  return (
+                    <li key={a.id} className="flex items-start gap-3 px-4 py-2.5">
+                      <span className={`pill shrink-0 ${days >= 2 ? "bg-bad-soft text-bad" : "bg-warn-soft text-warn"}`}>{days ? `${days}d` : "today"}</span>
+                      <Link href={a.link ?? "/approvals"} className="min-w-0 flex-1 hover:text-accent">
+                        <p className="truncate">{a.title}</p>
+                        <p className="text-xs text-muted">
+                          {a.who ?? "Someone"}
+                          {a.step ? ` · waiting for ${a.step}` : ""}
+                        </p>
+                      </Link>
+                    </li>
+                  );
+                })}
+                {approvals.length > 6 && <li className="px-4 py-2 text-xs text-muted">+{approvals.length - 6} more</li>}
+              </ul>
+            )}
+          </Panel>
+        </div>
+      )}
 
       <div className="grid gap-5 xl:grid-cols-2">
         <Panel title="Hottest open leads" description="Ranked by qualification score." flush>

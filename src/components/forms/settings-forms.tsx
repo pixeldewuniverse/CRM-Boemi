@@ -60,3 +60,16 @@ export function OrderSettingsForm({ v }: { v: Numbering & { defaultDepositPct: n
     </InlineForm>
   );
 }
+
+/** Master Data → default win probability per open deal stage. */
+export function StageProbabilityForm({ v, stages }: { v: Record<string, number>; stages: { key: string; label: string }[] }) {
+  return (
+    <InlineForm action={saveSettings} submitLabel="Save probabilities">
+      <input type="hidden" name="key" value="pipeline" />
+      {stages.map((s) => (
+        <TextField key={s.key} name={s.key} label={`${s.label} (%)`} inputMode="numeric" defaultValue={String(v[s.key] ?? 0)} />
+      ))}
+      <p className="text-[13px] text-muted sm:col-span-2">Won is always 100% and Lost 0%. A deal can override its own probability on the Sales Forecast page.</p>
+    </InlineForm>
+  );
+}

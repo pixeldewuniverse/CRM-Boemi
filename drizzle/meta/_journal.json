@@ -71,6 +71,13 @@
       "when": 1794301049909,
       "tag": "0009_boards",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1794309074223,
+      "tag": "0010_forecast_probability",
+      "breakpoints": true
     }
   ]
 }

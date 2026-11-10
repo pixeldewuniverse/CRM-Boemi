@@ -36,6 +36,14 @@ export const SETTINGS = {
     defaultDepositPct: z.coerce.number().int().min(0).max(100),
     terms: z.string().max(3000),
   }),
+  /** Default win probability (%) per open deal stage — weighted pipeline & forecast. */
+  pipeline: z.object({
+    new: z.coerce.number().int().min(0).max(100),
+    contacted: z.coerce.number().int().min(0).max(100),
+    sampling: z.coerce.number().int().min(0).max(100),
+    quotation: z.coerce.number().int().min(0).max(100),
+    negotiation: z.coerce.number().int().min(0).max(100),
+  }),
 } as const;
 
 export type SettingKey = keyof typeof SETTINGS;
@@ -68,6 +76,7 @@ export const DEFAULTS: { [K in SettingKey]: Settings<K> } = {
     defaultDepositPct: 50,
     terms: "Goods remain our property until paid in full. Please report any issue within 7 days of delivery.",
   },
+  pipeline: { new: 10, contacted: 20, sampling: 35, quotation: 55, negotiation: 75 },
 };
 
 /** `db` may be a transaction, so callers inside one don't need a second connection. */
