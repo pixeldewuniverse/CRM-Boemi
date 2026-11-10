@@ -58,6 +58,7 @@ export const NAV: NavCategory[] = [
     label: "Sales",
     icon: "pipe",
     items: [
+      { key: "contact-today", href: "/sales/contact-today", label: "Contact Today", description: "Every open lead in the order to call them: score, plus a boost for each day waiting and for leads past their SLA (Hot 1 day, Warm 3, Cold 7). Nobody is skipped — the score only sets the order.", roles: ["sales", "sales_manager", "marketing", "staff"] },
       { key: "leads", href: "/sales/leads", label: "Leads", description: "New prospects from the website, Instagram, WhatsApp, events and referrals. Qualify a lead to turn it into an Account + Deal." },
       { key: "pipeline", href: "/sales/pipeline", label: "Pipeline", description: "Deals by stage, from first contact to won or lost." },
       { key: "forecast", href: "/sales/forecast", label: "Sales Forecast", description: "Expected revenue per month: weighted pipeline (value × probability), commit and best case against target and actual orders." },

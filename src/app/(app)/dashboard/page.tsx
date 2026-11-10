@@ -12,6 +12,8 @@ import { getCurrentUser } from "@/lib/auth";
 import { fday, monthLabel, rp, rpk, ym, ymd } from "@/lib/format";
 import { projected, salesForecast } from "@/lib/reports/forecast";
 import { projectPerformance } from "@/lib/reports/projects";
+import { contactCounts } from "@/lib/qualification/contact";
+import { canOpen, findNav } from "@/lib/nav";
 import { repKpis, revenueBySegment } from "@/lib/queries/sales";
 import { now, ownedBy, seesAll, visibleUserIds } from "@/lib/scope";
 import { segmentSeries } from "@/lib/segments";
@@ -85,6 +87,8 @@ export default async function DashboardPage() {
   ]);
 
   const exec = user.role === "admin" || user.role === "executive";
+  const contactItem = findNav("/sales/contact-today")?.item;
+  const contact = contactItem && canOpen(contactItem, user.role) ? await contactCounts(user, today) : null;
   const [forecast, projects, approvals] = await Promise.all([
     salesForecast(user, period, 1),
     exec ? projectPerformance(user, ymd(today), { includeClosed: false }) : null,
@@ -250,24 +254,45 @@ export default async function DashboardPage() {
       )}
 
       <div className="grid gap-5 xl:grid-cols-2">
-        <Panel title="Hottest open leads" description="Ranked by qualification score." flush>
-          {hotLeads.length === 0 ? (
-            <Empty>No open leads.</Empty>
-          ) : (
-            <ul className="divide-y divide-line text-[13px]">
-              {hotLeads.map((l) => (
-                <li key={l.id} className="flex items-start gap-3 px-4 py-2.5">
-                  <span className="w-8 shrink-0 font-bold tabular-nums">{l.score}</span>
-                  <div className="min-w-0 flex-1">
-                    <p className="font-semibold">{l.company}</p>
-                    <p className="truncate text-xs text-muted">{l.reason}</p>
-                  </div>
-                  <TierBadge tier={l.tier} />
-                </li>
-              ))}
-            </ul>
-          )}
-        </Panel>
+        {contact ? (
+          <Panel title={`Contact today · ${contact.overdue + contact.dueToday}`} description={`${contact.overdue} past SLA · ${contact.total} open leads in total. Every lead gets a call — this is the order.`} actions={<Link href="/sales/contact-today" className="text-[13px] font-semibold text-accent">Contact Today →</Link>} flush>
+            {contact.top.length === 0 ? (
+              <Empty>No open leads.</Empty>
+            ) : (
+              <ul className="divide-y divide-line text-[13px]">
+                {contact.top.map((l) => (
+                  <li key={l.id} className="flex items-start gap-3 px-4 py-2.5">
+                    <span className="w-8 shrink-0 font-bold tabular-nums">{l.score ?? "—"}</span>
+                    <div className="min-w-0 flex-1">
+                      <p className="font-semibold">{l.company}</p>
+                      <p className={`truncate text-xs ${l.overdue ? "font-semibold text-bad" : "text-muted"}`}>{l.overdue ? "Past SLA" : l.firstContact ? "New — not contacted yet" : "Follow-up due"} · waiting {l.days}d</p>
+                    </div>
+                    <TierBadge tier={l.tier} />
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Panel>
+        ) : (
+          <Panel title="Hottest open leads" description="Ranked by qualification score." flush>
+            {hotLeads.length === 0 ? (
+              <Empty>No open leads.</Empty>
+            ) : (
+              <ul className="divide-y divide-line text-[13px]">
+                {hotLeads.map((l) => (
+                  <li key={l.id} className="flex items-start gap-3 px-4 py-2.5">
+                    <span className="w-8 shrink-0 font-bold tabular-nums">{l.score}</span>
+                    <div className="min-w-0 flex-1">
+                      <p className="font-semibold">{l.company}</p>
+                      <p className="truncate text-xs text-muted">{l.reason}</p>
+                    </div>
+                    <TierBadge tier={l.tier} />
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Panel>
+        )}
 
         <Panel title={`Team target · ${monthLabel(period)}`} flush>
           {scope.length === 0 ? (

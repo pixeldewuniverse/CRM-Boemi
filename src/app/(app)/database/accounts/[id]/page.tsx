@@ -6,6 +6,8 @@ import { ContactRowActions, DeleteActivityButton, EditAccountButton, LogActivity
 import { NewOrderButton, NewQuotationButton } from "@/components/forms/doc-forms";
 import { PageTitle } from "@/components/page/page-title";
 import { TierBadge } from "@/components/tier-badge";
+import { OverrideForm, RescoreButton, ScoreBreakdown } from "@/components/qualification/score-panel";
+import { scoreDetails } from "@/lib/qualification/details";
 import { Empty, Panel } from "@/components/ui/panel";
 import { PaymentPill } from "@/components/ui/payment-pill";
 import { StatusPill } from "@/components/ui/pill";
@@ -48,6 +50,7 @@ export default async function AccountPage({ params }: PageProps<"/database/accou
   const db = getDb();
   const c = schema.customers;
 
+  const qualificationP = scoreDetails("account", id);
   const [account] = await db
     .select({
       id: c.id,
@@ -76,6 +79,7 @@ export default async function AccountPage({ params }: PageProps<"/database/accou
     .leftJoin(schema.campaigns, eq(schema.campaigns.id, c.campaignId))
     .where(and(eq(c.id, id), customerScope(user)));
   if (!account) notFound();
+  const qualification = await qualificationP;
   const editable = canEditOwned(user, account.ownerId);
   const sells = canSell(user) && editable;
 
@@ -196,6 +200,15 @@ export default async function AccountPage({ params }: PageProps<"/database/accou
                 </>
               )}
             </dl>
+          </Panel>
+          <Panel title="Qualification" description="Rules on the profile + AI on visit and activity notes (when on). Score only sets the contact order.">
+            <div className="flex flex-col gap-3">
+              <ScoreBreakdown d={qualification!} />
+              <div className="flex flex-wrap gap-2">
+                <RescoreButton type="account" id={account.id} />
+              </div>
+              {canEditOwned(user, account.ownerId) && <OverrideForm d={qualification!} />}
+            </div>
           </Panel>
           <Panel title="Contacts" flush actions={sells && <NewContactButton accounts={[{ value: account.id, label: account.name }]} defaultAccountId={account.id} triggerClassName="btn px-2 py-1 text-xs" />}>
             {contacts.length === 0 ? (

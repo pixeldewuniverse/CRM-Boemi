@@ -29,6 +29,7 @@ export async function saveSettings(_prev: FormState, fd: FormData): Promise<Form
     return fe;
   }
   const value = parsed.data as Record<string, unknown>;
+  if (key.data === "qualification" && Number(value.warmAt) >= Number(value.hotAt)) return { ok: false, error: "Please check the highlighted fields.", fieldErrors: { warmAt: "Must be lower than the Hot threshold." } };
   if ("format" in value) {
     const sample = formatNumber(String(value.format), String(value.prefix), 1, Number(value.seqDigits));
     if (sample.length > 40) return { ok: false, error: "Please check the highlighted fields.", fieldErrors: { format: "Numbers would be too long." } };

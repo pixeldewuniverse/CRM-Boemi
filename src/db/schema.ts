@@ -130,6 +130,10 @@ export const criteriaOperatorEnum = pgEnum("criteria_operator", [
   "exists",
 ]);
 
+export const criterionKindEnum = pgEnum("criterion_kind", ["rule", "ai"]);
+export const qualificationSubjectEnum = pgEnum("qualification_subject", ["lead", "account"]);
+export const qualificationJobStatusEnum = pgEnum("qualification_job_status", ["queued", "running", "done", "failed"]);
+
 /* ───────────────────── Shared columns ───────────────────── */
 
 const id = () => uuid("id").primaryKey().defaultRandom();
@@ -240,6 +244,11 @@ export const customers = pgTable(
     qualificationTier: leadTierEnum("qualification_tier"),
     qualificationReason: text("qualification_reason"),
     qualifiedAt: timestamp("qualified_at", { withTimezone: true }),
+    /** Tier set by a person (reason required, audited); wins over the computed tier. */
+    tierOverride: leadTierEnum("tier_override"),
+    tierOverrideReason: text("tier_override_reason"),
+    tierOverrideBy: uuid("tier_override_by").references((): AnyPgColumn => users.id, { onDelete: "set null" }),
+    tierOverrideAt: timestamp("tier_override_at", { withTimezone: true }),
 
     createdAt: createdAt(),
     updatedAt: updatedAt(),
@@ -281,9 +290,55 @@ export const qualificationCriteria = pgTable("qualification_criteria", {
   value: jsonb("value").$type<unknown>(),
   weight: integer("weight").notNull().default(10),
   active: boolean("active").notNull().default(true),
+  /** rule = checked by code on structured fields; ai = judged from free text (0–3 with a quote as evidence). */
+  kind: criterionKindEnum("kind").notNull().default("rule"),
+  /** For AI criteria: what 0–3 means. Also shown to sales as the criterion's explanation. */
+  description: text("description"),
   createdAt: createdAt(),
   updatedAt: updatedAt(),
 });
+
+/** One scoring of a lead or account (rules + optional AI), kept as an audit trail. */
+export const qualificationRuns = pgTable(
+  "qualification_runs",
+  {
+    id: id(),
+    subjectType: qualificationSubjectEnum("subject_type").notNull(),
+    subjectId: uuid("subject_id").notNull(),
+    trigger: text("trigger").notNull(),
+    criteriaVersion: text("criteria_version").notNull(),
+    criteria: jsonb("criteria").$type<unknown[]>().notNull(),
+    results: jsonb("results").$type<unknown[]>().notNull(),
+    ai: jsonb("ai").$type<Record<string, unknown> | null>(),
+    score: integer("score").notNull(),
+    tier: leadTierEnum("tier").notNull(),
+    reason: text("reason"),
+    createdBy: uuid("created_by").references(() => users.id, { onDelete: "set null" }),
+    createdAt: createdAt(),
+  },
+  (t) => [index("qualification_runs_subject_idx").on(t.subjectType, t.subjectId, t.createdAt)],
+);
+
+/** Background scoring queue (processed after the response and by cron). */
+export const qualificationJobs = pgTable(
+  "qualification_jobs",
+  {
+    id: id(),
+    subjectType: qualificationSubjectEnum("subject_type").notNull(),
+    subjectId: uuid("subject_id").notNull(),
+    trigger: text("trigger").notNull(),
+    status: qualificationJobStatusEnum("status").notNull().default("queued"),
+    attempts: integer("attempts").notNull().default(0),
+    runAfter: timestamp("run_after", { withTimezone: true }).notNull().defaultNow(),
+    lastError: text("last_error"),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [
+    uniqueIndex("qualification_jobs_queued_uq").on(t.subjectType, t.subjectId).where(sql`${t.status} = 'queued'`),
+    index("qualification_jobs_due_idx").on(t.status, t.runAfter),
+  ],
+);
 
 /* ───────────────────── Sales activities ───────────────────── */
 
@@ -522,6 +577,16 @@ export const leads = pgTable(
     interests: jsonb("interests").$type<Record<string, unknown>>(),
     marketingConsent: boolean("marketing_consent").notNull().default(false),
     consentAt: timestamp("consent_at", { withTimezone: true }),
+    qualifiedAt: timestamp("qualified_at", { withTimezone: true }),
+    tierOverride: leadTierEnum("tier_override"),
+    tierOverrideReason: text("tier_override_reason"),
+    tierOverrideBy: uuid("tier_override_by").references(() => users.id, { onDelete: "set null" }),
+    tierOverrideAt: timestamp("tier_override_at", { withTimezone: true }),
+    /** Last time someone reached out (Contact Today / mark contacted). */
+    lastContactedAt: timestamp("last_contacted_at", { withTimezone: true }),
+    /** SLA reminders already sent for the current contact window. */
+    slaNotifiedAt: timestamp("sla_notified_at", { withTimezone: true }),
+    slaEscalatedAt: timestamp("sla_escalated_at", { withTimezone: true }),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },

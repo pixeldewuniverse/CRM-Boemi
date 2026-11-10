@@ -1,5 +1,6 @@
 import { timingSafeEqual } from "node:crypto";
 import { JourneyPayload, upsertJourneyLead } from "@/lib/journey";
+import { enqueueQualification } from "@/lib/qualification/queue";
 
 const MAX_BODY = 16 * 1024;
 
@@ -35,6 +36,8 @@ export async function POST(request: Request) {
 
   try {
     const result = await upsertJourneyLead(parsed.data);
+    // Score in the background (after the response): the journey site never waits for it.
+    if (result.leadId && (result.status === "created" || result.status === "updated")) await enqueueQualification("lead", result.leadId, `journey-${result.status}`);
     return Response.json({ ok: true, ...result });
   } catch (err) {
     console.error("journey lead sync failed", err);

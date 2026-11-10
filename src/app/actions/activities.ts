@@ -4,6 +4,7 @@ import { and, eq } from "drizzle-orm";
 import { refresh } from "next/cache";
 import { z } from "zod";
 import { getDb, schema } from "@/db";
+import { enqueueQualification } from "@/lib/qualification/queue";
 import { audit } from "@/lib/audit";
 import { verifyUser } from "@/lib/auth";
 import { fieldErrors, formObject, type FormState } from "@/lib/forms";
@@ -54,6 +55,7 @@ export async function logActivity(_prev: FormState, fd: FormData): Promise<FormS
     userId: user.id,
   });
   await audit({ actorId: user.id, action: "create", entity: "activity", entityId: `${d.type} · ${account.name}` });
+  await enqueueQualification("account", account.id, "activity");
   refresh();
   return { ok: true, message: `${d.type} logged.` };
 }

@@ -4,6 +4,7 @@ import { and, eq } from "drizzle-orm";
 import { refresh } from "next/cache";
 import { z } from "zod";
 import { getDb, schema } from "@/db";
+import { enqueueQualification } from "@/lib/qualification/queue";
 import { audit } from "@/lib/audit";
 import { verifyUser } from "@/lib/auth";
 import { customerScope } from "@/lib/customers";
@@ -83,6 +84,7 @@ export async function checkInVisit(_prev: FormState, fd: FormData): Promise<Form
     return null;
   });
 
+  await enqueueQualification("account", account.id, "visit");
   await audit({ actorId: user.id, action: "check_in", entity: "visit", entityId: account.name, changes: { fee, gps: `${d.lat.toFixed(5)},${d.lng.toFixed(5)}` } });
   if (feeId) {
     // Approval engine (Settings → Approval Workflows); default flow: Manager or Finance.

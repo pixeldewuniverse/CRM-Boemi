@@ -6,6 +6,8 @@ import { fday, fdatetime, rpk, ymd } from "@/lib/format";
 import { nextPeriod, periodStart } from "@/lib/queries/sales";
 import { audit } from "@/lib/audit";
 import { notify } from "@/lib/notifications";
+import { leadSlaJob } from "@/lib/qualification/contact";
+import { qualificationQueueJob } from "@/lib/qualification/queue";
 
 /**
  * Scheduled jobs are plain HTTP endpoints protected by CRON_SECRET:
@@ -193,4 +195,6 @@ export const CRON_JOBS: Record<string, () => Promise<Record<string, unknown>>> =
   "pending-visit-fees": pendingVisitFees,
   "daily-digest": dailyDigest,
   "expire-quotations": expireQuotations,
+  "qualification-queue": qualificationQueueJob,
+  "lead-sla": leadSlaJob,
 };

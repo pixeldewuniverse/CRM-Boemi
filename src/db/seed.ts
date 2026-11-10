@@ -20,6 +20,8 @@ import { and, eq, inArray, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import { DEFAULT_COLUMNS, DEFAULT_STATUS_LABELS } from "../lib/boards/columns";
+import { qualify } from "../lib/qualification/engine";
+import { mockAi } from "../lib/qualification/providers";
 import { normalizePhone } from "../lib/phone";
 import { lineTotals, tierForSegment, unitPrice } from "../lib/pricing";
 import demo from "./demo/demo-data.json";
@@ -147,6 +149,7 @@ async function main() {
         await ensureBatch4Demo(tx as unknown as Db);
         await ensureBatch5Demo(tx as unknown as Db);
         await ensureBatch6Demo(tx as unknown as Db);
+        await ensureBatch7Demo(tx as unknown as Db);
       });
       return console.log("Demo data already present — skipping seed (batch 1 demo data checked).");
     }
@@ -170,6 +173,7 @@ async function main() {
       await ensureBatch4Demo(tx as unknown as Db);
       await ensureBatch5Demo(tx as unknown as Db);
       await ensureBatch6Demo(tx as unknown as Db);
+      await ensureBatch7Demo(tx as unknown as Db);
     });
     console.log("Seeded demo data: 8 users, 14 products, 12 accounts, leads, deals, quotations, orders (+12-month history), visits, tasks, campaigns, events, content.");
   } finally {
@@ -715,6 +719,55 @@ async function ensureBatch6Demo(db: Db) {
     uid,
   );
   await db.update(schema.boards).set({ projectStatus: "completed" }).where(eq(schema.boards.name, "Sanur Spa — Signature Scent Pilot"));
+}
+
+/**
+ * Batch 7 demo: three AI criteria (judged from notes), a first score for every
+ * lead and account (rules + the simulated demo AI, labelled as such), some
+ * follow-ups past their SLA and one tier set by hand. Idempotent.
+ */
+async function ensureBatch7Demo(db: Db) {
+  const ai: [string, number, string][] = [
+    ["Concrete volume or timeline", 20, "0 = nothing about quantity or timing, 1 = vague (\"soon\", \"some\"), 2 = a rough size or season, 3 = numbers (rooms, boxes, outlets) or a date.\nKeywords: rooms, boxes, outlets, per month, year-end, timeline, deadline, pcs, units, villas"],
+    ["Need matches our range", 15, "0 = no product need mentioned, 1 = general interest, 2 = a product family we make, 3 = a specific product or use we already supply.\nKeywords: refill, amenities, massage oil, scrub, hamper, gift, diffuser, scent, plastic-free, welcome kit"],
+    ["Buying intent / next step agreed", 15, "0 = no sign, 1 = curious, 2 = asked for prices or samples, 3 = agreed a next step (trial, quotation, deposit, meeting).\nKeywords: pricing, quotation, quote, samples, trial, deposit, order, budget, meeting, mock-ups"],
+  ];
+  for (const [name, weight, description] of ai) {
+    const [exists] = await db.select({ id: schema.qualificationCriteria.id }).from(schema.qualificationCriteria).where(eq(schema.qualificationCriteria.name, name));
+    if (!exists) await db.insert(schema.qualificationCriteria).values({ name, weight, description, kind: "ai", field: "text", operator: "exists", value: null });
+  }
+  const [anyRun] = await db.select({ id: schema.qualificationRuns.id }).from(schema.qualificationRuns).limit(1);
+  if (anyRun) return;
+
+  // Expected volumes captured on the forms (Rp / year) for a few demo records.
+  const volumes: [typeof schema.leads | typeof schema.customers, string, number][] = [
+    [schema.leads, "PT Sinar Logistik", 60_000_000],
+    [schema.leads, "Jimbaran Bay Spa", 30_000_000],
+    [schema.customers, "Alas Harum Resort Ubud", 120_000_000],
+    [schema.customers, "Tirta Spa Seminyak", 40_000_000],
+  ];
+  for (const [t, name, v] of volumes) {
+    const nameCol = t === schema.leads ? schema.leads.company : schema.customers.name;
+    await db.update(t).set({ interests: sql`coalesce(${t.interests}, '{}'::jsonb) || ${JSON.stringify({ expectedVolume: v })}::jsonb` }).where(eq(nameCol, name));
+  }
+  const thresholds = { hotAt: 70, warmAt: 40 };
+  const leads = await db.select({ id: schema.leads.id }).from(schema.leads);
+  const accounts = await db.select({ id: schema.customers.id }).from(schema.customers);
+  for (const l of leads) await qualify(db as never, "lead", l.id, { trigger: "seed", ai: mockAi, thresholds });
+  for (const a of accounts) await qualify(db as never, "account", a.id, { trigger: "seed", ai: mockAi, thresholds });
+
+  // Follow-ups: contacted leads were last reached 2–6 days ago (some now past their SLA).
+  const contacted = await db.select({ id: schema.leads.id }).from(schema.leads).where(eq(schema.leads.status, "contacted"));
+  for (let i = 0; i < contacted.length; i++) await db.update(schema.leads).set({ lastContactedAt: new Date(Date.now() - (2 + (i % 5)) * 86_400_000) }).where(eq(schema.leads.id, contacted[i].id));
+
+  // One tier set by hand, with its reason in the audit trail.
+  const [manager] = await db.select({ id: schema.users.id }).from(schema.users).where(eq(schema.users.email, "manager@example.test"));
+  const [cold] = await db.select({ id: schema.leads.id, company: schema.leads.company, tier: schema.leads.qualificationTier }).from(schema.leads).where(and(eq(schema.leads.status, "new"), eq(schema.leads.qualificationTier, "cold"))).limit(1);
+  if (cold && manager) {
+    const reason = "Owner called the GM directly — budget confirmed for Q1.";
+    await db.update(schema.leads).set({ tierOverride: "warm", tierOverrideReason: reason, tierOverrideBy: manager.id, tierOverrideAt: new Date(), qualificationTier: "warm" }).where(eq(schema.leads.id, cold.id));
+    await db.insert(schema.auditLogs).values({ actorId: manager.id, action: "override", entity: "lead_tier", entityId: cold.company, changes: { tier: ["cold (computed)", "warm"], reason } });
+  }
 }
 
 /** Personas added after the first demo seed (safe to run on every deploy). */

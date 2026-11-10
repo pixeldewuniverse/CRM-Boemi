@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { and, count, desc, eq, ilike, or, sql } from "drizzle-orm";
 import { PageHeader } from "@/components/page/page-header";
 import { TierBadge } from "@/components/tier-badge";
+import { ScoreButton } from "@/components/qualification/score-panel";
 import { FilterChips, SearchBox } from "@/components/ui/filter-chips";
 import { Empty, Panel } from "@/components/ui/panel";
 import { StatusPill } from "@/components/ui/pill";
@@ -46,6 +47,7 @@ export default async function LeadsPage({ searchParams }: PageProps<"/sales/lead
         score: l.qualificationScore,
         tier: l.qualificationTier,
         reason: l.qualificationReason,
+        override: l.tierOverride,
         received: l.receivedOn,
         ownerId: l.ownerId,
         disqReason: l.disqualifyReason,
@@ -143,8 +145,11 @@ export default async function LeadsPage({ searchParams }: PageProps<"/sales/lead
                   </td>
                   <td>{r.source}</td>
                   <td className="max-w-64">
-                    <span className="mr-2 font-semibold tabular-nums">{r.score ?? "—"}</span>
-                    <TierBadge tier={r.tier} />
+                    <ScoreButton type="lead" id={r.id} score={r.score}>
+                      <span className="font-semibold tabular-nums">{r.score ?? "—"}</span>
+                      <TierBadge tier={r.tier} />
+                      {r.override && <span className="text-xs text-muted" title="Tier set by hand">✎</span>}
+                    </ScoreButton>
                     {r.reason && <p className="mt-1 text-xs text-muted">{r.reason}</p>}
                   </td>
                   <td>

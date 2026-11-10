@@ -78,6 +78,13 @@
       "when": 1794309074223,
       "tag": "0010_forecast_probability",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1794322811389,
+      "tag": "0011_qualification",
+      "breakpoints": true
     }
   ]
 }

@@ -1,8 +1,11 @@
 "use server";
 
+import { gte } from "drizzle-orm";
 import { refresh } from "next/cache";
 import { z } from "zod";
+import { getDb, schema } from "@/db";
 import { audit } from "@/lib/audit";
+import { enqueueQualification } from "@/lib/qualification/queue";
 import { verifyUser } from "@/lib/auth";
 import { IMPORT_ENTITIES, IMPORT_LABEL } from "@/lib/import/fields";
 import { checkImport, commitChecked, errorReport, type RowStatus } from "@/lib/import/run";
@@ -76,7 +79,14 @@ export async function commitImport(input: z.input<typeof Commit>): Promise<Commi
   const res = await checkImport(user, entity, text, { mapping, defaultOwnerId: ownerId });
   if ("error" in res) return { ok: false, error: res.error ?? "Could not read the file." };
   if ("missing" in res && res.missing?.length) return { ok: false, error: `Map the required columns: ${res.missing.join(", ")}.` };
+  const started = new Date(Date.now() - 1000);
   const result = await commitChecked(res.checked, mode, fileName);
+  // Score what this import created or changed, in the background.
+  if (entity === "leads" || entity === "accounts") {
+    const t = entity === "leads" ? schema.leads : schema.customers;
+    const ids = (await getDb().select({ id: t.id }).from(t).where(gte(t.updatedAt, started))).map((r) => r.id);
+    await enqueueQualification(entity === "leads" ? "lead" : "account", ids, "import");
+  }
   await audit({
     actorId: user.id,
     action: "import",

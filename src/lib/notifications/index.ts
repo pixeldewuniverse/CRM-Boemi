@@ -20,6 +20,7 @@ export const NOTIFICATION_TYPES = {
   "lead.new": { label: "New lead added by your team", emailDefault: false },
   "lead.journey": { label: "New leads from the aroma journey", emailDefault: false },
   "lead.qualified": { label: "Lead qualified by your team", emailDefault: false },
+  "lead.sla": { label: "Lead not contacted within its SLA", emailDefault: true },
   "deal.won": { label: "Deal won", emailDefault: true },
   "deal.lost": { label: "Deal lost", emailDefault: true },
   "content.your_turn": { label: "Content waiting for you", emailDefault: true },

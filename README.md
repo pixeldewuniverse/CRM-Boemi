@@ -200,6 +200,55 @@ Migrasi Batch 5a: `drizzle/0009_boards.sql` (9 tabel board + enum). Tidak ada li
 
 Grafik memakai komponen yang sudah ada (`ColumnChart`/`BarList`, `Meter` — kini dengan mode `spend` untuk budget, `Stats`). Migrasi Batch 6: `drizzle/0010_forecast_probability.sql`. Seed (`ensureBatch6Demo`): target revenue 3 bulan ke depan, 2 deal dengan probability sendiri, project terlambat & over budget (Website Relaunch, Marketing) dan project selesai tepat waktu (Sanur Spa pilot).
 
+### Lead qualification (Batch 7)
+
+Prinsip: **aturan pasti dihitung kode, AI hanya menilai teks bebas, skor akhir tetap dihitung kode.** Semua lead tetap dihubungi — skor hanya menentukan **urutan**.
+
+- **Engine** `src/lib/qualification/`:
+  - `core.ts` (murni, tanpa DB/jaringan): evaluasi rule, redaksi teks, validasi AI, skor/tier/alasan, versi kriteria, prioritas kontak.
+  - `engine.ts`: muat lead/account → lapis 1 + lapis 2 → simpan `qualification_runs` → update record. Dipakai app dan seed.
+  - `providers.ts`: Gemini API / Vertex AI / mock. `queue.ts`: antrian background. `contact.ts`: Contact Today + cron SLA.
+- **Lapis 1 (kode)**: kriteria `rule` di `qualification_criteria` (operator: equals, is not, is one of, ≥, ≤, contains, is filled in) atas segment, city, region (diturunkan dari kota), source, marketing consent, `interests.*`, decision maker (khusus account).
+- **Lapis 2 (AI, opsional)**: kriteria `ai` dengan rubrik 0–3. Sumber teks: catatan lead, jawaban aroma journey, catatan visit & activity.
+  - Output wajib JSON schema `{criteria: [{criterionId, score 0–3, evidence, unknown}], missingInfo[], suggestedNextAction}`.
+  - Evidence harus kutipan **persis** dari teks yang dikirim (dicek kode); kalau bukan kutipan → `unknown`.
+  - **Unknown tidak dihitung sebagai 0** (dikeluarkan dari pembagi, sama seperti AI mati) dan masuk ke "Ask next" — jadi lead dengan catatan pendek tidak dihukum.
+- **Privasi (UU PDP)**: yang dikirim hanya segment, kota, region, source, consent, `interests` yang di-whitelist dan teks yang sudah diredaksi. Nama perusahaan/PIC/kontak, HP, email dan @handle diganti `[company]`/`[name]`/`[phone]`/`[email]`/`[handle]`; nama, HP, email, Instagram dan tanggal lahir lead tidak pernah dikirim. Daftar field yang dikirim tersimpan di setiap run.
+- **Skor** = bobot yang didapat ÷ bobot yang berlaku × 100 (AI: bobot × skor/3). Tier: **hot ≥ 70, warm ≥ 40**, sisanya cold (bisa diubah di Master Data). Alasan = 3 penyumbang terbesar.
+- **Pemicu** (semuanya lewat antrian `qualification_jobs`, diproses setelah respons dengan `after()` — request tidak menunggu — plus cron sebagai pengaman, retry 3×):
+  - lead dibuat: form, import, webhook journey;
+  - account dibuat, diedit, atau hasil konversi lead;
+  - visit atau activity baru;
+  - tombol **Re-score** (langsung) dan **Re-score all** di Master Data.
+- **Jejak**: `qualification_runs` menyimpan versi kriteria (hash), snapshot kriteria, hasil per kriteria, provider/model/durasi, output AI tervalidasi atau error, field yang dikirim, skor/tier/alasan dan pemicunya.
+- **Override tier**: owner/manager/admin, alasan wajib (≥ 10 karakter), tercatat di Audit Trail. Re-score tetap menghitung skor, tapi tier override tetap dipakai sampai dikembalikan ke "computed".
+- **Contact Today** (`/sales/contact-today`, menu Sales + kartu di Dashboard):
+  - Isi: semua lead *new/contacted* dalam scope user.
+  - Urutan = skor + 2 poin per hari menunggu (maks +30) + 20 bila SLA lewat.
+  - SLA: hot 1 hari, warm 3, cold 7, dihitung dari kontak terakhir (atau tanggal lead masuk).
+  - Tombol *Contacted* mencatat `last_contacted_at` dan memulai jendela baru.
+  - Cron `lead-sla` mengirim notifikasi `lead.sla` ke owner (lead tanpa owner → manager), lalu eskalasi ke manager bila lewat +1 hari.
+- **Fallback**: AI mati / error / timeout 20 dtk → lapis 1 tetap disimpan (kriteria AI tidak dihitung), run diberi tanda "AI unavailable", dan dicoba ulang 30 menit kemudian. Lead tetap masuk antrian kontak.
+- **Master Data**: kriteria bisa ditambah/diedit/dinonaktifkan/dihapus (run lama menyimpan salinannya), ambang tier & SLA, status lapis AI, **Re-score all**.
+
+**Env**:
+
+| Variabel | Fungsi |
+| --- | --- |
+| `QUALIFICATION_AI=on` | Nyalakan lapis 2; tanpa ini hanya rules. |
+| `QUALIFICATION_AI_PROVIDER` | `gemini` (staging) atau `vertex` (production). `mock` hanya untuk tes/demo, tanpa jaringan. |
+| `GEMINI_API_KEY` | Untuk provider `gemini`; dikirim di header, bukan URL. |
+| `VERTEX_PROJECT`, `VERTEX_LOCATION` | Untuk provider `vertex`. Location default `asia-southeast1`. Auth memakai service account Cloud Run lewat metadata server — tanpa file key; beri role *Vertex AI User*. |
+| `QUALIFICATION_MODEL` | Default `gemini-2.5-flash-lite`. |
+
+Tanpa library baru (pakai `fetch`). Migrasi Batch 7: `drizzle/0011_qualification.sql`.
+
+Seed (`ensureBatch7Demo`):
+- 3 kriteria AI contoh;
+- skor awal semua lead/account memakai **demo AI tersimulasi** (diberi label begitu di UI);
+- beberapa follow-up yang lewat SLA;
+- satu tier yang di-override beserta alasannya.
+
 ## Data demo
 
 `src/db/seed.ts` mengisi data dummy dari demo (`src/db/demo/demo-data.json`): 8 user persona, 12 akun, 14 produk, lead, deal, quotation, order + riwayat 12 bulan, visit, task, target, campaign, event, konten. Tanggal digeser supaya "hari ini" di demo = hari seed dijalankan.
@@ -271,8 +320,10 @@ Env: `JOURNEY_SYNC_KEY` (string acak ≥ 32 karakter, sama dengan `CRM_SYNC_KEY`
 | `/api/cron/pending-visit-fees` | 01:00 (08:00 WIB) | Ingatkan approver soal visit fee > 24 jam |
 | `/api/cron/daily-digest` | 23:30 (06:30 WIB) | Ringkasan harian untuk Executive & Sales Manager (sekali per hari) |
 | `/api/cron/expire-quotations` | 17:05 (00:05 WIB) | Quotation *sent* yang lewat *valid until* → *expired* (tercatat di audit trail sebagai System) |
+| `/api/cron/qualification-queue` | Vercel: 00:20 · Cloud Scheduler: **tiap 5 menit** | Sisa antrian skor lead/account (normalnya sudah diproses langsung setelah request lewat `after()`), retry AI, bersihkan job lama |
+| `/api/cron/lead-sla` | Vercel: 01:00 (08:00 WIB) · Cloud Scheduler: **tiap jam** | Pengingat lead yang lewat SLA kontak (sekali per jendela kontak) + eskalasi ke manager setelah +1 hari |
 
-Semua job butuh header `Authorization: Bearer $CRON_SECRET`. Vercel Cron mengirim header ini otomatis bila `CRON_SECRET` diset.
+Vercel Hobby hanya mengizinkan cron harian, jadi di staging keduanya sekali sehari; di Cloud Run pakai interval di atas. Semua job butuh header `Authorization: Bearer $CRON_SECRET`. Vercel Cron mengirim header ini otomatis bila `CRON_SECRET` diset.
 
 ## Pindah ke Google Cloud BOEMI
 
@@ -286,5 +337,4 @@ Semua job butuh header `Authorization: Bearer $CRON_SECRET`. Vercel Cron mengiri
 
 - Projects berikutnya: My Work (gabungan tasks + board items), automasi; approval project_budget & purchase_request
 - PDF untuk sales order / invoice (saat ini hanya quotation)
-- Scoring kualifikasi (rule-based dari `qualification_criteria` + Gemini/Vertex AI untuk catatan kunjungan)
 - Rate limit login, reset password, login Google Workspace

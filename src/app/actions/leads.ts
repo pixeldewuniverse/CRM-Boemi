@@ -13,6 +13,7 @@ import { notify } from "@/lib/notifications";
 import { managersOf } from "@/lib/notifications/recipients";
 import { canAddLeads, canEditOwned, isManager } from "@/lib/permissions";
 import { normalizePhone } from "@/lib/phone";
+import { enqueueQualification } from "@/lib/qualification/queue";
 
 const Lead = z.object({
   company: z.string("Company name is required.").min(2, "Company name is required.").max(160),
@@ -41,7 +42,7 @@ export async function createLead(_prev: FormState, fd: FormData): Promise<FormSt
   if (dup) return { ok: false, error: dup };
 
   const ownerId = isManager(user) && d.ownerId ? d.ownerId : user.role === "marketing" ? (d.ownerId ?? null) : user.id;
-  await getDb()
+  const [created] = await getDb()
     .insert(schema.leads)
     .values({
       company: d.company,
@@ -54,7 +55,9 @@ export async function createLead(_prev: FormState, fd: FormData): Promise<FormSt
       campaignId: d.campaignId,
       ownerId,
       note: d.note,
-    });
+    })
+    .returning({ id: schema.leads.id });
+  await enqueueQualification("lead", created.id, "created");
 
   await audit({ actorId: user.id, action: "create", entity: "lead", entityId: d.company, changes: { source: d.source } });
   if (ownerId && ownerId !== user.id) {
@@ -82,9 +85,10 @@ export async function markLeadContacted(leadId: string): Promise<FormState> {
   if (!id.success) return { ok: false, error: "Invalid lead." };
   const lead = await loadLead(id.data);
   if (!lead || !canEditOwned(user, lead.ownerId)) return { ok: false, error: "You can't update this lead." };
-  if (lead.status !== "new") return { ok: true };
-  await getDb().update(schema.leads).set({ status: "contacted" }).where(eq(schema.leads.id, lead.id));
-  await audit({ actorId: user.id, action: "update", entity: "lead", entityId: lead.company, changes: { status: ["new", "contacted"] } });
+  if (lead.status !== "new" && lead.status !== "contacted") return { ok: true };
+  // Restarts the SLA window (Contact Today); first contact also moves New → Contacted.
+  await getDb().update(schema.leads).set({ status: "contacted", lastContactedAt: new Date() }).where(eq(schema.leads.id, lead.id));
+  await audit({ actorId: user.id, action: "update", entity: "lead", entityId: lead.company, changes: lead.status === "new" ? { status: ["new", "contacted"] } : { contacted: "again" } });
   refresh();
   return { ok: true };
 }
@@ -152,6 +156,7 @@ export async function qualifyLead(_prev: FormState, fd: FormData): Promise<FormS
     return customerId;
   });
 
+  await enqueueQualification("account", accountId, "converted-from-lead");
   await audit({ actorId: user.id, action: "qualify", entity: "lead", entityId: lead.company, changes: { account: accountId, deal: d.dealTitle ?? "none" } });
   await notify({
     userIds: await managersOf(ownerId, [user.id]),

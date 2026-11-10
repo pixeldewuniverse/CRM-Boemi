@@ -44,6 +44,14 @@ export const SETTINGS = {
     quotation: z.coerce.number().int().min(0).max(100),
     negotiation: z.coerce.number().int().min(0).max(100),
   }),
+  /** Lead qualification: tier thresholds (score 0–100) and contact SLA in days per tier. */
+  qualification: z.object({
+    hotAt: z.coerce.number().int().min(1).max(100),
+    warmAt: z.coerce.number().int().min(0).max(99),
+    slaHot: z.coerce.number().int().min(1).max(30),
+    slaWarm: z.coerce.number().int().min(1).max(30),
+    slaCold: z.coerce.number().int().min(1).max(60),
+  }),
 } as const;
 
 export type SettingKey = keyof typeof SETTINGS;
@@ -77,6 +85,7 @@ export const DEFAULTS: { [K in SettingKey]: Settings<K> } = {
     terms: "Goods remain our property until paid in full. Please report any issue within 7 days of delivery.",
   },
   pipeline: { new: 10, contacted: 20, sampling: 35, quotation: 55, negotiation: 75 },
+  qualification: { hotAt: 70, warmAt: 40, slaHot: 1, slaWarm: 3, slaCold: 7 },
 };
 
 /** `db` may be a transaction, so callers inside one don't need a second connection. */

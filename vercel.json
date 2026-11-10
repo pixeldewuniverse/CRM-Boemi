@@ -19,6 +19,14 @@
     {
       "path": "/api/cron/expire-quotations",
       "schedule": "5 17 * * *"
+    },
+    {
+      "path": "/api/cron/qualification-queue",
+      "schedule": "20 0 * * *"
+    },
+    {
+      "path": "/api/cron/lead-sla",
+      "schedule": "0 1 * * *"
     }
   ]
 }

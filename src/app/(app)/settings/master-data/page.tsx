@@ -9,6 +9,9 @@ import { ACTIVITY_TYPES, LEAD_SOURCES, LOST_REASONS, SEGMENTS, STAGE, STAGES } f
 import { PRICE_TIERS, SEGMENT_TIER } from "@/lib/pricing";
 import { getSetting } from "@/lib/settings";
 import { StageProbabilityForm } from "@/components/forms/settings-forms";
+import { EditCriterionButton, NewCriterionButton, QualificationSettingsForm, RescoreAllButton } from "@/components/forms/qualification-forms";
+import { OPERATORS } from "@/lib/qualification/fields";
+import { aiConfig } from "@/lib/qualification/providers";
 
 export const metadata: Metadata = { title: "Master Data" };
 const HREF = "/settings/master-data";
@@ -30,7 +33,8 @@ function List({ title, items }: { title: string; items: readonly string[] }) {
 export default async function MasterDataPage() {
   const { denied } = await guard(HREF);
   if (denied) return denied;
-  const probabilities = await getSetting("pipeline");
+  const [probabilities, qualification] = await Promise.all([getSetting("pipeline"), getSetting("qualification")]);
+  const ai = aiConfig();
   const criteria = await getDb().select().from(schema.qualificationCriteria).orderBy(asc(schema.qualificationCriteria.createdAt));
   const totalWeight = criteria.filter((c) => c.active).reduce((s, c) => s + c.weight, 0);
 
@@ -39,33 +43,58 @@ export default async function MasterDataPage() {
       <PageHeader href={HREF} />
       <Panel
         title="Lead qualification criteria"
-        description={`Client-defined rules used to score leads and accounts (0–100). Active weights total ${totalWeight}. The AI reviews visit notes on top of these rules and explains the score.`}
+        description={`Rules are checked by code; AI criteria are judged from notes (0–3, with a quote). The final score (0–100) is always computed by code: earned weight ÷ weight that applies. Active weights total ${totalWeight}.`}
+        actions={
+          <>
+            <RescoreAllButton />
+            <NewCriterionButton />
+          </>
+        }
         flush
       >
-        <table className="tbl min-w-[640px]">
+        <p className={`border-b border-line px-4 py-2 text-[13px] ${ai.on ? "bg-ok-soft text-ok" : "bg-surface-2 text-muted"}`}>
+          AI layer: {ai.on ? `on · ${ai.provider === "mock" ? "demo provider (simulated, no network)" : `${ai.provider} · ${ai.model}`}` : "off — rules only (set QUALIFICATION_AI=on)"}. Only segment, city, source, consent, safe interests and redacted notes are sent; never names, phone numbers or e-mails.
+        </p>
+        <table className="tbl min-w-[760px]">
           <thead>
             <tr>
               <th>Criterion</th>
-              <th>Field</th>
+              <th>Checked by</th>
               <th>Rule</th>
               <th className="num">Weight</th>
               <th>Status</th>
+              <th />
             </tr>
           </thead>
           <tbody>
             {criteria.map((c) => (
               <tr key={c.id}>
-                <td className="font-semibold">{c.name}</td>
-                <td className="font-mono text-xs">{c.field}</td>
-                <td>
-                  {c.operator.replace("_", " ")} {Array.isArray(c.value) ? (c.value as unknown[]).join(", ") : String(c.value)}
+                <td className="font-semibold">
+                  {c.name}
+                  {c.description && <p className="max-w-md whitespace-pre-line text-xs font-normal text-muted">{c.description}</p>}
+                </td>
+                <td>{c.kind === "ai" ? <Pill tone="info">AI</Pill> : <Pill>Rule</Pill>}</td>
+                <td className="text-[13px]">
+                  {c.kind === "ai" ? (
+                    <span className="text-muted">Reads notes, visits, activities</span>
+                  ) : (
+                    <>
+                      <span className="font-mono text-xs">{c.field}</span> {OPERATORS[c.operator]} {c.operator === "exists" ? "" : Array.isArray(c.value) ? (c.value as unknown[]).join(", ") : String(c.value)}
+                    </>
+                  )}
                 </td>
                 <td className="num">{c.weight}</td>
                 <td>{c.active ? <Pill tone="ok">Active</Pill> : <Pill>Off</Pill>}</td>
+                <td>
+                  <EditCriterionButton c={{ id: c.id, name: c.name, kind: c.kind, field: c.field, operator: c.operator, value: c.value, weight: c.weight, description: c.description, active: c.active }} />
+                </td>
               </tr>
             ))}
           </tbody>
         </table>
+      </Panel>
+      <Panel title="Tiers & contact SLA" description="Tier from the score; SLA = days within which a lead of that tier must be contacted (Contact Today, reminders).">
+        <QualificationSettingsForm v={qualification} />
       </Panel>
       <div className="grid gap-5 lg:grid-cols-2">
         <Panel title="Segments & price tier" flush>

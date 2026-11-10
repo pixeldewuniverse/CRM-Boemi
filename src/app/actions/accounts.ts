@@ -4,6 +4,7 @@ import { eq } from "drizzle-orm";
 import { refresh } from "next/cache";
 import { z } from "zod";
 import { getDb, schema } from "@/db";
+import { enqueueQualification } from "@/lib/qualification/queue";
 import { audit } from "@/lib/audit";
 import { verifyUser } from "@/lib/auth";
 import { findDuplicate } from "@/lib/duplicates";
@@ -38,7 +39,7 @@ export async function createAccount(_prev: FormState, fd: FormData): Promise<For
   if (dup) return { ok: false, error: dup };
 
   const ownerId = isManager(user) && d.ownerId ? d.ownerId : user.id;
-  await getDb().transaction(async (tx) => {
+  const accountId = await getDb().transaction(async (tx) => {
     const [c] = await tx
       .insert(schema.customers)
       .values({
@@ -64,7 +65,9 @@ export async function createAccount(_prev: FormState, fd: FormData): Promise<For
         isDecisionMaker: true,
       });
     }
+    return c.id;
   });
+  await enqueueQualification("account", accountId, "created");
   await audit({ actorId: user.id, action: "create", entity: "customer", entityId: d.name, changes: { segment: d.segment } });
   refresh();
   return { ok: true, message: `${d.name} added.` };
@@ -123,6 +126,7 @@ export async function updateAccount(_prev: FormState, fd: FormData): Promise<For
     if (before[k] !== values[k]) changes[k] = [before[k], values[k]];
   }
   await audit({ actorId: user.id, action: "update", entity: "customer", entityId: d.name, changes });
+  await enqueueQualification("account", d.id, "account-updated");
   refresh();
   return { ok: true, message: "Account saved." };
 }
