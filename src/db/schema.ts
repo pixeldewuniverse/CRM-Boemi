@@ -9,6 +9,7 @@ import { relations, sql } from "drizzle-orm";
 import { ROLES } from "../lib/roles";
 import {
   type AnyPgColumn,
+  primaryKey,
   bigint,
   boolean,
   date,
@@ -80,6 +81,12 @@ export const orderStatusEnum = pgEnum("order_status", [
 ]);
 
 export const paymentStatusEnum = pgEnum("payment_status", ["unpaid", "deposit", "paid"]);
+
+export const deliveryStatusEnum = pgEnum("delivery_status", ["pending", "shipped", "delivered"]);
+
+export const paymentKindEnum = pgEnum("payment_kind", ["deposit", "settlement", "other"]);
+
+export const approvalNeedEnum = pgEnum("quote_approval", ["not_required", "pending", "approved", "rejected"]);
 
 export const leadStatusEnum = pgEnum("lead_status", [
   "new",
@@ -239,6 +246,7 @@ export const contacts = pgTable(
     phoneE164: text("phone_e164"),
     email: text("email"),
     isDecisionMaker: boolean("is_decision_maker").notNull().default(false),
+    notes: text("notes"),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
@@ -351,6 +359,7 @@ export const products = pgTable(
     name: text("name").notNull(),
     category: text("category"),
     variant: text("variant"), // pack size, e.g. 250 ml
+    unit: text("unit").notNull().default("pcs"), // selling unit: pcs, bottle, box, jerrycan…
     price: rupiah("price"), // retail price; tier prices are derived
     stock: integer("stock").notNull().default(0),
     active: boolean("active").notNull().default(true),
@@ -410,11 +419,16 @@ export const orders = pgTable(
     reference: text("reference"),
     channel: text("channel"),
     notes: text("notes"),
+    quotationId: uuid("quotation_id").references((): AnyPgColumn => quotations.id, { onDelete: "set null" }),
+    deliveryStatus: deliveryStatusEnum("delivery_status").notNull().default("pending"),
+    shippedAt: timestamp("shipped_at", { withTimezone: true }),
+    deliveredAt: timestamp("delivered_at", { withTimezone: true }),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
   (t) => [
     uniqueIndex("orders_order_no_uq").on(t.orderNo),
+    uniqueIndex("orders_quotation_uq").on(t.quotationId).where(sql`${t.quotationId} is not null`),
     index("orders_customer_idx").on(t.customerId, t.orderedAt),
   ],
 );
@@ -433,6 +447,26 @@ export const orderItems = pgTable(
     subtotal: rupiah("subtotal").notNull().default(0),
   },
   (t) => [index("order_items_order_idx").on(t.orderId)],
+);
+
+/** Deposits and settlements; orders.paid_amount / payment_status are derived from these. */
+export const orderPayments = pgTable(
+  "order_payments",
+  {
+    id: id(),
+    orderId: uuid("order_id")
+      .notNull()
+      .references(() => orders.id, { onDelete: "cascade" }),
+    kind: paymentKindEnum("kind").notNull().default("settlement"),
+    amount: rupiah("amount").notNull(),
+    paidOn: date("paid_on").notNull(),
+    method: text("method"), // transfer, cash, QRIS…
+    reference: text("reference"),
+    note: text("note"),
+    recordedBy: uuid("recorded_by").references(() => users.id),
+    createdAt: createdAt(),
+  },
+  (t) => [index("order_payments_order_idx").on(t.orderId)],
 );
 
 /* ─────────────────────────── Leads ─────────────────────────── */
@@ -499,6 +533,14 @@ export const quotations = pgTable(
     taxAmount: rupiah("tax_amount").notNull().default(0),
     total: rupiah("total").notNull().default(0),
     notes: text("notes"),
+    terms: text("terms"),
+    // Discount above the role's limit needs a manager's approval before sending.
+    approval: approvalNeedEnum("approval").notNull().default("not_required"),
+    approvalNote: text("approval_note"),
+    approvedBy: uuid("approved_by").references(() => users.id),
+    approvedAt: timestamp("approved_at", { withTimezone: true }),
+    sentAt: timestamp("sent_at", { withTimezone: true }),
+    decidedAt: timestamp("decided_at", { withTimezone: true }),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
@@ -588,6 +630,54 @@ export const contentItems = pgTable(
     updatedAt: updatedAt(),
   },
   (t) => [index("content_items_publish_idx").on(t.publishAt)],
+);
+
+/* ──────────────────────── Activity log ──────────────────────── */
+
+/**
+ * Things that already happened with an account (call, WhatsApp, email,
+ * meeting, note). Separate from tasks, which are future to-dos with owners,
+ * due dates and reminders.
+ */
+export const activities = pgTable(
+  "activities",
+  {
+    id: id(),
+    type: text("type").notNull(),
+    occurredAt: timestamp("occurred_at", { withTimezone: true }).notNull(),
+    notes: text("notes").notNull(),
+    customerId: uuid("customer_id")
+      .notNull()
+      .references(() => customers.id, { onDelete: "cascade" }),
+    opportunityId: uuid("opportunity_id").references(() => opportunities.id, { onDelete: "set null" }),
+    contactId: uuid("contact_id").references(() => contacts.id, { onDelete: "set null" }),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id),
+    createdAt: createdAt(),
+  },
+  (t) => [index("activities_customer_idx").on(t.customerId, t.occurredAt), index("activities_user_idx").on(t.userId, t.occurredAt)],
+);
+
+/* ───────────────────── Settings & numbering ───────────────────── */
+
+/** Small typed settings (validated in src/lib/settings.ts), e.g. document templates. */
+export const appSettings = pgTable("app_settings", {
+  key: text("key").primaryKey(),
+  value: jsonb("value").$type<Record<string, unknown>>().notNull(),
+  updatedBy: uuid("updated_by").references(() => users.id),
+  updatedAt: updatedAt(),
+});
+
+/** Running number per document type and period (YYYYMM, YYYY or "all"). */
+export const documentCounters = pgTable(
+  "document_counters",
+  {
+    docType: text("doc_type").notNull(),
+    period: text("period").notNull(),
+    lastSeq: integer("last_seq").notNull().default(0),
+  },
+  (t) => [primaryKey({ columns: [t.docType, t.period] })],
 );
 
 /* ─────────────────────────── KPI ─────────────────────────── */

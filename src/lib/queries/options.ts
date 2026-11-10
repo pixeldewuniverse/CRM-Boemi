@@ -41,3 +41,20 @@ export async function assignableReps() {
     .where(and(eq(schema.users.active, true), inArray(schema.users.role, ["sales", "sales_manager"])))
     .orderBy(asc(schema.users.name));
 }
+
+/** Every campaign (an account may stay linked to a finished one). */
+export async function allCampaignOptions() {
+  return getDb()
+    .select({ value: schema.campaigns.id, label: schema.campaigns.name })
+    .from(schema.campaigns)
+    .orderBy(asc(schema.campaigns.name));
+}
+
+/** Active team members, e.g. for a campaign or event PIC. */
+export async function peopleOptions() {
+  return getDb()
+    .select({ value: schema.users.id, label: schema.users.name })
+    .from(schema.users)
+    .where(eq(schema.users.active, true))
+    .orderBy(asc(schema.users.name));
+}

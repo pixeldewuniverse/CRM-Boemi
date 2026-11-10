@@ -16,7 +16,7 @@
  */
 import "dotenv/config";
 import bcrypt from "bcryptjs";
-import { eq, inArray, sql } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import { normalizePhone } from "../lib/phone";
@@ -139,7 +139,8 @@ async function main() {
     let passwordHash = existing?.hash ?? null;
     if (marker) {
       if (passwordHash) await ensureExtraDemoUsers(db, passwordHash);
-      return console.log("Demo data already present — skipping seed.");
+      await db.transaction((tx) => ensureBatch1Demo(tx as unknown as Db));
+      return console.log("Demo data already present — skipping seed (batch 1 demo data checked).");
     }
     if (!passwordHash) {
       const password = process.env.SEED_ADMIN_PASSWORD;
@@ -155,10 +156,180 @@ async function main() {
       await removeOldMinimalSeed(tx as unknown as Db);
       await seedDemo(tx as unknown as Db, passwordHash!);
       await ensureExtraDemoUsers(tx as unknown as Db, passwordHash!);
+      await ensureBatch1Demo(tx as unknown as Db);
     });
     console.log("Seeded demo data: 8 users, 14 products, 12 accounts, leads, deals, quotations, orders (+12-month history), visits, tasks, campaigns, events, content.");
   } finally {
     await client.end();
+  }
+}
+
+/* ── batch 1: products units, contact notes, activity log, document settings ── */
+const unitFor = (sku: string) =>
+  sku.startsWith("RF-") ? "jerrycan" : sku.startsWith("CA-") || sku.startsWith("BB-") || sku.startsWith("BS-") ? "jar" : sku.startsWith("GB-") ? "box" : sku.startsWith("AK-") ? "set" : "bottle";
+const CONTACT_NOTES: Record<string, string> = {
+  A01: "Prefers WhatsApp before 10:00. Approves anything above Rp 50 jt with the GM.",
+  A04: "Purchasing visits Bali monthly — good time for samples.",
+  A07: "Pays by transfer on the 25th. Ask for the PO number on every order.",
+  A09: "Gift season starts in November; needs mock-ups 3 weeks ahead.",
+};
+const QUOTE_TERMS =
+  "Prices in Indonesian Rupiah. Delivery within Bali 3–5 working days after the deposit is received. This quotation is valid until the date shown.";
+/** Demo order that came from an accepted demo quotation. */
+const QUOTE_FOR_ORDER: Record<string, string> = { "SO-2610-021": "Q-2609-011" };
+
+const DEMO_ACTIVITIES: { acc: string; deal?: string; user: string; type: string; at: [string, string]; notes: string }[] = [
+  { acc: "A01", deal: "amenities q1", user: "sales@example.test", type: "Call", at: ["2026-10-30", "10:15"], notes: "GM agrees on 50% deposit; wants delivery split in two batches (Jan / Feb)." },
+  { acc: "A01", user: "sales@example.test", type: "WhatsApp", at: ["2026-10-24", "08:40"], notes: "Sent photos of the new lemongrass amenity line. They'll test in 5 rooms." },
+  { acc: "A02", user: "sales@example.test", type: "Meeting", at: ["2026-10-28", "14:00"], notes: "Spa manager tasted the massage oil range. Asked for a 5% volume discount — sent quotation." },
+  { acc: "A03", user: "sales@example.test", type: "Email", at: ["2026-10-27", "16:20"], notes: "Shared welcome-kit price list and sample delivery date." },
+  { acc: "A04", user: "putu@example.test", type: "Call", at: ["2026-10-29", "11:00"], notes: "Purchasing confirmed the refill order; asked for invoice copy by email." },
+  { acc: "A05", user: "putu@example.test", type: "WhatsApp", at: ["2026-10-31", "09:05"], notes: "Confirmed the repeat order for November, delivery next week." },
+  { acc: "A06", user: "sales@example.test", type: "Note", at: ["2026-10-22", "17:30"], notes: "Shelf space moved next to the entrance — sell-through up since mid-October." },
+  { acc: "A07", user: "dewi@example.test", type: "Call", at: ["2026-10-26", "13:10"], notes: "Customer rejected Q-2609-004 (price). Keep in touch for Q1 restock." },
+  { acc: "A08", user: "dewi@example.test", type: "Meeting", at: ["2026-10-30", "15:30"], notes: "Owner wants a 15% opening discount for 3 SKUs. Sent to manager for approval." },
+  { acc: "A09", user: "dewi@example.test", type: "Email", at: ["2026-10-29", "10:00"], notes: "Sent hamper mock-ups (3 options). Decision by the HR team next Tuesday." },
+  { acc: "A10", user: "dewi@example.test", type: "Call", at: ["2026-10-20", "11:45"], notes: "Hampers partner plans Lebaran gifting volume — call again in January." },
+  { acc: "A11", user: "sales@example.test", type: "Meeting", at: ["2026-10-25", "10:30"], notes: "Site visit with the spa director; interested in a signature scent for the lobby." },
+  { acc: "A12", user: "marketing@example.test", type: "Note", at: ["2026-10-18", "18:00"], notes: "Pop-up booth confirmed for the Sanur Weekend Market." },
+];
+
+/**
+ * Batch 1 demo data. Idempotent: runs on a fresh seed and on databases that
+ * were seeded before batch 1 (e.g. staging), without touching later edits.
+ */
+async function ensureBatch1Demo(db: Db) {
+  // Products: units for the demo SKUs that still have the default.
+  for (const unit of ["bottle", "jar", "jerrycan", "box", "set"]) {
+    const skus = demo.products.map((p) => p.sku).filter((sku) => unitFor(sku) === unit);
+    if (skus.length) await db.update(schema.products).set({ unit }).where(and(eq(schema.products.unit, "pcs"), inArray(schema.products.sku, skus)));
+  }
+
+  // Document settings (dummy company details — replace in Settings → Document Templates).
+  await db
+    .insert(schema.appSettings)
+    .values({
+      key: "company",
+      value: {
+        name: "BOEMI Botanicals",
+        address: "Jl. Contoh No. 1, Ubud, Gianyar, Bali 80571 (demo address)",
+        phone: "+62 361 000 000",
+        email: "sales@example.test",
+        taxId: "",
+        bank: "Bank Demo · 000 000 0000 · a.n. BOEMI Botanicals (dummy)",
+      },
+    })
+    .onConflictDoNothing();
+
+  // Counters continue after the numbers already used (Q-YYMM-NNN / SO-YYMM-NNN).
+  await db.execute(sql`
+    insert into document_counters (doc_type, period, last_seq)
+    select 'quotation', '20' || substring(quote_no from 3 for 4), max(substring(quote_no from 8)::int)
+      from quotations where quote_no ~ '^Q-[0-9]{4}-[0-9]+$' group by 2
+    union all
+    select 'order', '20' || substring(order_no from 4 for 4), max(substring(order_no from 9)::int)
+      from orders where order_no ~ '^SO-[0-9]{4}-[0-9]+$' group by 2
+    on conflict (doc_type, period) do update set last_seq = greatest(document_counters.last_seq, excluded.last_seq)`);
+
+  // Quotations seeded before batch 1: terms + sent/decided timestamps; the accepted one is linked to its order.
+  await db.execute(sql`update quotations set terms = ${QUOTE_TERMS} where terms is null`);
+  await db.execute(sql`update quotations set sent_at = (issued_on + time '15:00') at time zone 'Asia/Jakarta' where sent_at is null and status <> 'draft'`);
+  await db.execute(sql`update quotations set decided_at = (issued_on + time '16:00') at time zone 'Asia/Jakarta' where decided_at is null and status in ('accepted','rejected')`);
+  for (const [orderNo, quoteNo] of Object.entries(QUOTE_FOR_ORDER)) {
+    await db.execute(sql`update orders set quotation_id = (select id from quotations where quote_no = ${quoteNo})
+      where order_no = ${orderNo} and quotation_id is null
+        and not exists (select 1 from orders o2 join quotations q on q.id = o2.quotation_id where q.quote_no = ${quoteNo})`);
+  }
+
+  // Targets for every metric (current + last month), never overwriting saved ones.
+  const reps = await db.select({ id: schema.users.id, email: schema.users.email }).from(schema.users).where(inArray(schema.users.role, ["sales"]));
+  const period = D("2026-11-01").slice(0, 7);
+  const lastPeriod = D("2026-10-01").slice(0, 7);
+  const base: Record<string, number> = { "sales@example.test": 250_000_000, "dewi@example.test": 300_000_000, "putu@example.test": 180_000_000 };
+  const targetRows = reps.flatMap((r) =>
+    [period, lastPeriod].flatMap((pp) => [
+      { userId: r.id, metric: "revenue", period: pp, target: pp === period ? (base[r.email] ?? 150_000_000) : Math.round(((base[r.email] ?? 150_000_000) * 0.9) / 1e6) * 1e6 },
+      { userId: r.id, metric: "visits", period: pp, target: 12 },
+      { userId: r.id, metric: "orders", period: pp, target: 5 },
+      { userId: r.id, metric: "new_customers", period: pp, target: pp === period ? 2 : 1 },
+    ]),
+  );
+  if (targetRows.length) await db.insert(schema.kpiTargets).values(targetRows).onConflictDoNothing();
+
+  // The rest only once (the activity log is the marker).
+  const [{ n }] = await db.select({ n: sql<number>`count(*)::int` }).from(schema.activities);
+  if (n > 0) return;
+
+  const users = await db.select({ id: schema.users.id, email: schema.users.email }).from(schema.users);
+  const uid = Object.fromEntries(users.map((u) => [u.email, u.id]));
+  const accounts = await db.select({ id: schema.customers.id, ref: schema.customers.externalRef }).from(schema.customers).where(sql`${schema.customers.externalRef} like 'demo-%'`);
+  const acc = Object.fromEntries(accounts.map((a) => [a.ref!.slice(5), a.id]));
+  const deals = await db.select({ id: schema.opportunities.id, title: schema.opportunities.title, customerId: schema.opportunities.customerId }).from(schema.opportunities);
+  const contacts = await db.select({ id: schema.contacts.id, customerId: schema.contacts.customerId, dm: schema.contacts.isDecisionMaker }).from(schema.contacts);
+
+  const rows = DEMO_ACTIVITIES.filter((a) => acc[a.acc] && uid[a.user]).map((a) => ({
+    type: a.type,
+    occurredAt: T(a.at[0], a.at[1]),
+    notes: a.notes,
+    customerId: acc[a.acc],
+    opportunityId: a.deal ? (deals.find((d) => d.customerId === acc[a.acc] && d.title.toLowerCase().includes(a.deal!.toLowerCase()))?.id ?? null) : null,
+    contactId: a.type === "Note" ? null : (contacts.find((c) => c.customerId === acc[a.acc] && c.dm)?.id ?? null),
+    userId: uid[a.user],
+  }));
+  if (rows.length) await db.insert(schema.activities).values(rows);
+
+  // Contact notes for demo accounts (only where empty).
+  for (const [ref, note] of Object.entries(CONTACT_NOTES)) {
+    if (acc[ref]) await db.execute(sql`update contacts set notes = ${note} where customer_id = ${acc[ref]} and is_decision_maker and notes is null`);
+  }
+
+  // Campaign links for a few demo accounts.
+  const campaigns = await db.select({ id: schema.campaigns.id, name: schema.campaigns.name }).from(schema.campaigns);
+  for (const [ref, name] of [["A12", "Rempah Body Butter Launch"], ["A09", "Year-end Hampers"], ["A11", "B2B Outreach Hotel Bali Q4"]]) {
+    const c = campaigns.find((x) => x.name === name);
+    if (c && acc[ref]) await db.update(schema.customers).set({ campaignId: c.id }).where(sql`${schema.customers.id} = ${acc[ref]} and ${schema.customers.campaignId} is null`);
+  }
+
+  // A draft quotation whose discount is above the sales limit → waits for the manager.
+  const [dewi, a08] = [uid["dewi@example.test"], acc.A08];
+  const products = await db.select({ id: schema.products.id, sku: schema.products.sku, price: schema.products.price }).from(schema.products).where(inArray(schema.products.sku, ["BW-SEN-250", "CA-SEN-180", "RS-TAN-100"]));
+  if (dewi && a08 && products.length) {
+    const tier = tierForSegment("Retail Partner");
+    const lines = products.map((p, i) => {
+      const unit = unitPrice(p.price ?? 0, tier);
+      const quantity = [48, 24, 36][i] ?? 24;
+      return { productId: p.id, quantity, unitPrice: unit, subtotal: unit * quantity };
+    });
+    const totals = lineTotals(lines, 15, true);
+    const issued = D("2026-10-31");
+    const yymm = issued.slice(2, 4) + issued.slice(5, 7);
+    const [counter] = await db.execute<{ last_seq: number }>(sql`
+      insert into document_counters (doc_type, period, last_seq) values ('quotation', ${"20" + yymm}, 1)
+      on conflict (doc_type, period) do update set last_seq = document_counters.last_seq + 1 returning last_seq`);
+    const quoteNo = `Q-${yymm}-${String(Number((counter as { last_seq: number }).last_seq)).padStart(3, "0")}`;
+    const validUntil = new Date(Date.parse(`${issued}T00:00:00Z`) + 30 * 86_400_000).toISOString().slice(0, 10);
+    const [q] = await db
+      .insert(schema.quotations)
+      .values({
+        quoteNo,
+        customerId: a08,
+        ownerId: dewi,
+        status: "draft",
+        issuedOn: issued,
+        validUntil,
+        priceTier: tier,
+        subtotal: totals.subtotal,
+        discountPct: 15,
+        ppn: true,
+        taxAmount: totals.taxAmount,
+        total: totals.total,
+        terms: QUOTE_TERMS,
+        notes: "Opening order for the new store corner.",
+        approval: "pending",
+      })
+      .returning({ id: schema.quotations.id });
+    await db.insert(schema.quotationItems).values(lines.map((l) => ({ ...l, quotationId: q.id })));
+    await db.insert(schema.auditLogs).values({ actorId: dewi, action: "create", entity: "quotation", entityId: quoteNo, changes: { discountPct: 15 } });
   }
 }
 
@@ -231,6 +402,7 @@ async function seedDemo(db: Db, passwordHash: string) {
         name: p.n,
         category: p.cat,
         variant: p.size,
+        unit: unitFor(p.sku),
         price: p.price,
         stock: p.stock,
         active: p.active,
@@ -306,6 +478,7 @@ async function seedDemo(db: Db, passwordHash: string) {
           phoneE164: normalizePhone(phone),
           email,
           isDecisionMaker: i === 0,
+          notes: i === 0 ? (CONTACT_NOTES[a.id] ?? null) : null,
         })),
       );
     }
@@ -370,6 +543,7 @@ async function seedDemo(db: Db, passwordHash: string) {
   }
 
   /* ── quotations ── */
+  const quoteId: Record<string, string> = {};
   for (const q of demo.quotes) {
     const p = priced(q.acc, q.items as Item[], q.disc, q.ppn);
     const [row] = await db
@@ -388,8 +562,14 @@ async function seedDemo(db: Db, passwordHash: string) {
         ppn: q.ppn,
         taxAmount: p.taxAmount,
         total: p.total,
+        terms: QUOTE_TERMS,
+        approval: "not_required",
+        sentAt: q.st === "Draft" ? null : T(q.dt, "15:00"),
+        decidedAt: q.st === "Accepted" || q.st === "Rejected" ? T(q.dt, "16:00") : null,
+        notes: q.st === "Rejected" ? "Customer: chose a local supplier for this season." : null,
       })
       .returning({ id: schema.quotations.id });
+    quoteId[q.id] = row.id;
     await db.insert(schema.quotationItems).values(p.lines.map((l) => ({ ...l, quotationId: row.id })));
   }
 
@@ -397,10 +577,13 @@ async function seedDemo(db: Db, passwordHash: string) {
   type OrderSeed = {
     no: string; acc: string; at: Date; owner: string; status: (typeof schema.orderStatusEnum.enumValues)[number];
     disc: number; ppn: boolean; dpPct: number; paid: "none" | "dp" | "full"; items: Item[]; ref: string;
+    delivery?: "pending" | "shipped" | "delivered";
   };
   const orderSeeds: OrderSeed[] = demo.orders.map((o) => ({
     no: o.id, acc: o.acc, at: T(o.dt, "11:00"), owner: o.owner,
-    status: o.st.toLowerCase() as OrderSeed["status"],
+    // Shipped / Delivered are delivery states since batch 1; the order itself is processing.
+    status: (["Shipped", "Delivered"].includes(o.st) ? "processing" : o.st.toLowerCase()) as OrderSeed["status"],
+    delivery: o.st === "Shipped" ? "shipped" : o.st === "Delivered" || o.st === "Completed" ? "delivered" : "pending",
     disc: o.disc, ppn: o.ppn, dpPct: o.dpPct, paid: o.paid as OrderSeed["paid"], items: o.items as Item[], ref: o.ref,
   }));
 
@@ -439,6 +622,7 @@ async function seedDemo(db: Db, passwordHash: string) {
         paid: "full",
         items,
         ref: "Repeat order",
+        delivery: "delivered",
       });
     }
   }
@@ -498,8 +682,19 @@ async function seedDemo(db: Db, passwordHash: string) {
         paidAmount,
         reference: o.ref,
         channel: accountSeg[o.acc],
+        quotationId: QUOTE_FOR_ORDER[o.no] ? quoteId[QUOTE_FOR_ORDER[o.no]] : null,
+        deliveryStatus: o.delivery ?? "pending",
+        shippedAt: o.delivery && o.delivery !== "pending" ? new Date(o.at.getTime() + 2 * 86_400_000) : null,
+        deliveredAt: o.delivery === "delivered" ? new Date(o.at.getTime() + 4 * 86_400_000) : null,
       })
       .returning({ id: schema.orders.id });
+    // Payments: a deposit when the order is confirmed, the rest on delivery.
+    const day = (d: Date, plus: number) => new Date(d.getTime() + plus * 86_400_000).toISOString().slice(0, 10);
+    const deposit = Math.round((p.total * o.dpPct) / 100);
+    const pays: (typeof schema.orderPayments.$inferInsert)[] = [];
+    if (o.paid !== "none" && o.dpPct > 0) pays.push({ orderId: row.id, kind: "deposit", amount: o.paid === "full" ? deposit : paidAmount, paidOn: day(o.at, 1), method: "Transfer", reference: `TRF-${o.no.slice(3)}-1`, recordedBy: userId.u6 });
+    if (o.paid === "full") pays.push({ orderId: row.id, kind: "settlement", amount: p.total - (o.dpPct > 0 ? deposit : 0), paidOn: day(o.at, o.dpPct > 0 ? 9 : 14), method: o.acc === "A12" ? "QRIS" : "Transfer", reference: `TRF-${o.no.slice(3)}-2`, recordedBy: userId.u6 });
+    if (pays.length) await db.insert(schema.orderPayments).values(pays);
     await db.insert(schema.orderItems).values(
       p.lines.map((l) => ({ orderId: row.id, productId: l.productId, quantity: l.quantity, unitPrice: l.unitPrice, subtotal: l.subtotal })),
     );
@@ -557,6 +752,11 @@ async function seedDemo(db: Db, passwordHash: string) {
     { userId: userId[u], metric: "revenue", period, target: t.t },
     { userId: userId[u], metric: "revenue", period: lastPeriod, target: Math.round((t.t * 0.9) / 1e6) * 1e6 },
     { userId: userId[u], metric: "visits", period, target: 12 },
+    { userId: userId[u], metric: "visits", period: lastPeriod, target: 12 },
+    { userId: userId[u], metric: "orders", period, target: u === "u3" ? 6 : 5 },
+    { userId: userId[u], metric: "orders", period: lastPeriod, target: 5 },
+    { userId: userId[u], metric: "new_customers", period, target: 2 },
+    { userId: userId[u], metric: "new_customers", period: lastPeriod, target: 1 },
   ]);
   await db.insert(schema.kpiTargets).values(targetRows).onConflictDoNothing();
 

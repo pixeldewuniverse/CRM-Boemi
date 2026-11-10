@@ -30,7 +30,7 @@ export async function repKpis(period: string) {
   const ids = reps.map((r) => r.id);
   if (!ids.length) return [];
 
-  const [targets, revenue, prevRevenue, pipeline, won, visits, done, overdue] = await Promise.all([
+  const [targets, revenue, prevRevenue, pipeline, won, visits, done, overdue, logged, firstOrders] = await Promise.all([
     db
       .select({ id: schema.kpiTargets.userId, metric: schema.kpiTargets.metric, target: schema.kpiTargets.target })
       .from(schema.kpiTargets)
@@ -74,10 +74,25 @@ export async function repKpis(period: string) {
       .from(schema.tasks)
       .where(and(inArray(schema.tasks.status, ["open", "in_progress", "waiting_approval"]), lt(schema.tasks.dueAt, new Date())))
       .groupBy(schema.tasks.assigneeId),
+    // Calls, WhatsApps, meetings… logged in the activity log (same window as done tasks).
+    db
+      .select({ id: schema.activities.userId, n: sql<number>`count(*)`.mapWith(Number) })
+      .from(schema.activities)
+      .where(gte(schema.activities.occurredAt, new Date(start.getTime() - 30 * 86_400_000)))
+      .groupBy(schema.activities.userId),
+    // New customers: accounts whose first (non-cancelled) order falls in the period, credited to that order's rep.
+    db.execute<{ id: string | null; n: number }>(sql`
+      select f.sales_id as id, count(*)::int as n from (
+        select distinct on (customer_id) customer_id, sales_id, ordered_at
+          from ${o} where status <> 'cancelled' order by customer_id, ordered_at
+      ) f
+      where f.ordered_at >= ${start.toISOString()}::timestamptz and f.ordered_at < ${end.toISOString()}::timestamptz
+      group by f.sales_id`),
   ]);
 
   const by = <T extends { id: string | null }>(rows: T[]) => new Map(rows.map((r) => [r.id, r]));
-  const rev = by(revenue), prev = by(prevRevenue), pipe = by(pipeline), w = by(won), vis = by(visits), dn = by(done), od = by(overdue);
+  const rev = by(revenue), prev = by(prevRevenue), pipe = by(pipeline), w = by(won), vis = by(visits), dn = by(done), od = by(overdue), lg = by(logged);
+  const fresh = by((firstOrders as unknown as { id: string | null; n: number }[]).map((r) => ({ id: r.id, n: Number(r.n) })));
 
   return reps.map((r) => {
     const t = targets.filter((x) => x.id === r.id);
@@ -85,6 +100,9 @@ export async function repKpis(period: string) {
       ...r,
       revenueTarget: t.find((x) => x.metric === "revenue")?.target ?? 0,
       visitTarget: t.find((x) => x.metric === "visits")?.target ?? 0,
+      ordersTarget: t.find((x) => x.metric === "orders")?.target ?? 0,
+      newCustomersTarget: t.find((x) => x.metric === "new_customers")?.target ?? 0,
+      newCustomers: fresh.get(r.id)?.n ?? 0,
       revenue: rev.get(r.id)?.value ?? 0,
       orders: rev.get(r.id)?.n ?? 0,
       lastMonthRevenue: prev.get(r.id)?.value ?? 0,
@@ -92,7 +110,7 @@ export async function repKpis(period: string) {
       openDeals: pipe.get(r.id)?.n ?? 0,
       dealsWon: w.get(r.id)?.n ?? 0,
       visits: vis.get(r.id)?.n ?? 0,
-      activitiesDone: dn.get(r.id)?.n ?? 0,
+      activitiesDone: (dn.get(r.id)?.n ?? 0) + (lg.get(r.id)?.n ?? 0),
       overdue: od.get(r.id)?.n ?? 0,
     };
   });

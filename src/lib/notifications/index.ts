@@ -25,6 +25,10 @@ export const NOTIFICATION_TYPES = {
   "content.your_turn": { label: "Content waiting for you", emailDefault: true },
   "content.update": { label: "Content status changed", emailDefault: false },
   "digest.daily": { label: "Daily summary", emailDefault: true },
+  "quote.approval": { label: "Quotation discount needs approval", emailDefault: true },
+  "quote.decided": { label: "Quotation discount approved/rejected", emailDefault: true },
+  "quote.accepted": { label: "Quotation accepted by the customer", emailDefault: false },
+  "order.payment": { label: "Payment recorded on your order", emailDefault: false },
 } as const;
 
 export type NotificationType = keyof typeof NOTIFICATION_TYPES;

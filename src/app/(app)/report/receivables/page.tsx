@@ -39,7 +39,7 @@ export default async function ReceivablesPage() {
     .from(o)
     .innerJoin(schema.customers, eq(schema.customers.id, o.customerId))
     .leftJoin(schema.users, eq(schema.users.id, o.salesId))
-    .where(and(ownedBy(user, o.salesId), ne(o.status, "cancelled"), ne(o.paymentStatus, "paid")))
+    .where(and(ownedBy(user, o.salesId), ne(o.status, "cancelled"), ne(o.status, "draft"), ne(o.paymentStatus, "paid")))
     .orderBy(asc(o.orderedAt));
 
   const withAge = rows.map((r) => ({ ...r, due: r.total - r.paid, age: daysBetween(r.at, today) }));
@@ -82,7 +82,9 @@ export default async function ReceivablesPage() {
               {withAge.map((r) => (
                 <tr key={r.id}>
                   <td>
-                    <p className="font-semibold">{r.no}</p>
+                    <Link href={`/sales/orders/${r.id}`} className="font-semibold text-accent hover:underline">
+                      {r.no}
+                    </Link>
                     <p className="text-xs text-muted">{r.sales}</p>
                   </td>
                   <td>

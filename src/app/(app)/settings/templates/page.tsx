@@ -1,55 +1,63 @@
 import type { Metadata } from "next";
+import { eq } from "drizzle-orm";
+import { CompanySettingsForm, OrderSettingsForm, QuotationSettingsForm } from "@/components/forms/settings-forms";
 import { guard } from "@/components/page/guard";
 import { PageHeader } from "@/components/page/page-header";
 import { Panel } from "@/components/ui/panel";
-import { PPN_RATE } from "@/lib/pricing";
+import { getDb, schema } from "@/db";
+import { formatNumber, numberParts } from "@/lib/doc-number";
+import { canEditSettings } from "@/lib/permissions";
+import { now } from "@/lib/scope";
+import { getSetting, type Settings } from "@/lib/settings";
 
 export const metadata: Metadata = { title: "Document Templates" };
 const HREF = "/settings/templates";
 
-const DOCS = [
-  {
-    name: "Quotation",
-    numbering: "Q-YYMM-NNN (e.g. Q-2611-012)",
-    rules: ["Price tier chosen from the account segment", `PPN ${PPN_RATE * 100}% shown separately`, "Valid for 30 days", "Discount up to 10% without manager approval"],
-    terms: "Prices in Rupiah. Delivery within Bali 3–5 working days after payment of deposit.",
-  },
-  {
-    name: "Sales order",
-    numbering: "SO-YYMM-NNN (e.g. SO-2611-004)",
-    rules: ["Created from an accepted quotation or as a repeat order", "Default deposit 50% for new hotel accounts", "Retail partners on 30-day terms"],
-    terms: "Goods remain our property until paid in full. Complaints within 7 days of delivery.",
-  },
-  {
-    name: "Consignment settlement",
-    numbering: "CS-YYMM-<account>",
-    rules: ["Monthly per outlet", "Commission per agreement (20–30%)"],
-    terms: "Settlement invoice issued by the 5th of the following month.",
-  },
-];
+/** The number the next document will get with the saved settings. */
+async function nextNumber(docType: "quotation" | "order", s: Settings<"quotation"> | Settings<"order">, at: Date) {
+  const p = numberParts(at);
+  const period = s.reset === "month" ? `${p.YYYY}${p.MM}` : s.reset === "year" ? p.YYYY : "all";
+  const counters = await getDb().select().from(schema.documentCounters).where(eq(schema.documentCounters.docType, docType));
+  const last = counters.find((c) => c.period === period)?.lastSeq ?? 0;
+  return formatNumber(s.format, s.prefix, last + 1, s.seqDigits, at);
+}
 
 export default async function TemplatesPage() {
-  const { denied } = await guard(HREF);
+  const { user, denied } = await guard(HREF);
   if (denied) return denied;
+  const at = await now();
+  const [company, quotation, order] = await Promise.all([getSetting("company"), getSetting("quotation"), getSetting("order")]);
+  const [nextQuote, nextOrder] = await Promise.all([nextNumber("quotation", quotation, at), nextNumber("order", order, at)]);
+  const editable = canEditSettings(user);
+
   return (
     <>
       <PageHeader href={HREF} />
-      <div className="grid gap-5 lg:grid-cols-3">
-        {DOCS.map((d) => (
-          <Panel key={d.name} title={d.name} description={d.numbering}>
-            <ul className="list-disc space-y-1 pl-5 text-[13px]">
-              {d.rules.map((r) => (
-                <li key={r}>{r}</li>
-              ))}
-            </ul>
-            <p className="mt-3 border-t border-line pt-3 text-[13px] text-muted">
-              <span className="font-semibold text-fg">Terms: </span>
-              {d.terms}
-            </p>
-          </Panel>
-        ))}
+      {!editable && <p className="text-[13px] text-muted">Read-only. Only Admins and Sales Managers can change these settings.</p>}
+      <div className="grid gap-5 xl:grid-cols-2">
+        <Panel title="Quotation" description={`Next number: ${nextQuote}`}>
+          {editable ? <QuotationSettingsForm v={quotation} /> : <Readout rows={[["Format", quotation.format], ["Valid for", `${quotation.validDays} days`], ["Max discount without approval", `${quotation.salesDiscountLimit}%`], ["Terms", quotation.terms]]} />}
+        </Panel>
+        <Panel title="Sales order" description={`Next number: ${nextOrder}`}>
+          {editable ? <OrderSettingsForm v={order} /> : <Readout rows={[["Format", order.format], ["Default deposit", `${order.defaultDepositPct}%`], ["Terms", order.terms]]} />}
+        </Panel>
+        <Panel title="Company details" description="Printed on the header of quotations." className="xl:col-span-2">
+          {editable ? <CompanySettingsForm v={company} /> : <Readout rows={[["Name", company.name], ["Address", company.address], ["Bank", company.bank || "—"]]} />}
+        </Panel>
       </div>
-      <p className="text-[13px] text-muted">Editing templates and PDF output come with the quotation module build.</p>
     </>
+  );
+}
+
+function Readout({ rows }: { rows: [string, string][] }) {
+  return (
+    <dl className="grid grid-cols-[9rem_1fr] gap-x-3 gap-y-2 text-[13px]">
+      {rows.map(([k, v]) => (
+        <div key={k} className="contents">
+          <dt className="text-muted">{k}</dt>
+          <dd className="whitespace-pre-line">{v}</dd>
+        </div>
+      ))}
+    </dl>
   );
 }

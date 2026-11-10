@@ -92,9 +92,9 @@ export function AppShell({ children, ...slots }: Slots & { children: ReactNode }
   );
 }
 
-/** Account detail pages belong to Database → Accounts. */
+/** Detail pages (/database/accounts/:id, /sales/orders/:id…) belong to their list's menu item. */
 function matchPath(pathname: string) {
-  return findNav(pathname) ?? (pathname.startsWith("/database/accounts/") ? findNav("/database/accounts") : undefined);
+  return findNav(pathname) ?? findNav(pathname.replace(/\/[^/]+$/, ""));
 }
 
 function Breadcrumb() {

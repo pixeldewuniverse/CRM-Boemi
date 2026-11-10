@@ -46,7 +46,7 @@ export default async function VisitsReportPage() {
           { label: "Fees pending", value: rp(total("pending")), tone: total("pending") ? "warn" : "default" },
         ]}
       />
-      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.6fr)]">
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.6fr)]">
         <Panel title="Visits per rep · 90 days">
           {rows.length ? <BarList rows={rows.map((r) => ({ label: r.name, value: r.visits }))} format={num} /> : <p className="text-muted">No visits.</p>}
         </Panel>

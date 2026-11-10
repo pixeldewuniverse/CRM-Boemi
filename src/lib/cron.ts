@@ -4,6 +4,7 @@ import { and, eq, gte, inArray, isNull, lt, lte, ne, or, sql } from "drizzle-orm
 import { getDb, schema } from "@/db";
 import { fday, fdatetime, rpk, ymd } from "@/lib/format";
 import { nextPeriod, periodStart } from "@/lib/queries/sales";
+import { audit } from "@/lib/audit";
 import { notify } from "@/lib/notifications";
 
 /**
@@ -189,8 +190,24 @@ async function dailyDigest() {
   return { sent: to.length };
 }
 
+/** Daily: sent quotations past their valid-until date become expired. */
+async function expireQuotations() {
+  const db = getDb();
+  const today = ymd(new Date());
+  const expired = await db
+    .update(schema.quotations)
+    .set({ status: "expired", decidedAt: new Date() })
+    .where(and(eq(schema.quotations.status, "sent"), lt(schema.quotations.validUntil, today)))
+    .returning({ id: schema.quotations.id, quoteNo: schema.quotations.quoteNo, ownerId: schema.quotations.ownerId });
+  for (const q of expired) {
+    await audit({ actorId: null, action: "expire", entity: "quotation", entityId: q.quoteNo, changes: { status: ["sent", "expired"] } });
+  }
+  return { expired: expired.length };
+}
+
 export const CRON_JOBS: Record<string, () => Promise<Record<string, unknown>>> = {
   "task-reminders": taskReminders,
   "pending-visit-fees": pendingVisitFees,
   "daily-digest": dailyDigest,
+  "expire-quotations": expireQuotations,
 };

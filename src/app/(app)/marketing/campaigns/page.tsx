@@ -1,5 +1,8 @@
 import type { Metadata } from "next";
-import { desc, eq } from "drizzle-orm";
+import { desc, eq, sql } from "drizzle-orm";
+import { CampaignRowActions, NewCampaignButton } from "@/components/forms/crm-forms";
+import { canManageMarketing } from "@/lib/permissions";
+import { peopleOptions } from "@/lib/queries/options";
 import { PageHeader } from "@/components/page/page-header";
 import { Empty, Panel } from "@/components/ui/panel";
 import { StatusPill } from "@/components/ui/pill";
@@ -12,9 +15,10 @@ import { CAMPAIGN_STATUS } from "@/lib/labels";
 export const metadata: Metadata = { title: "Campaigns" };
 
 export default async function CampaignsPage() {
-  await getCurrentUser();
+  const user = await getCurrentUser();
+  const manage = canManageMarketing(user);
   const c = schema.campaigns;
-  const rows = await getDb()
+  const [rows, people] = await Promise.all([getDb()
     .select({
       id: c.id,
       name: c.name,
@@ -27,10 +31,14 @@ export default async function CampaignsPage() {
       leads: c.resultLeads,
       revenue: c.resultRevenue,
       owner: schema.users.name,
+      ownerId: c.ownerId,
+      notes: c.notes,
+      linkedLeads: sql<number>`(select count(*)::int from ${schema.leads} where ${schema.leads.campaignId} = ${c.id})`,
+      linkedAccounts: sql<number>`(select count(*)::int from ${schema.customers} where ${schema.customers.campaignId} = ${c.id})`,
     })
     .from(c)
     .leftJoin(schema.users, eq(schema.users.id, c.ownerId))
-    .orderBy(desc(c.startsOn));
+    .orderBy(desc(c.startsOn)), manage ? peopleOptions() : Promise.resolve([])]);
 
   const budget = rows.reduce((s, r) => s + (r.budget ?? 0), 0);
   const leads = rows.reduce((s, r) => s + r.leads, 0);
@@ -38,7 +46,7 @@ export default async function CampaignsPage() {
 
   return (
     <>
-      <PageHeader href="/marketing/campaigns" />
+      <PageHeader href="/marketing/campaigns" actions={manage && <NewCampaignButton people={people} />} />
       <Stats
         items={[
           { label: "Running now", value: rows.filter((r) => r.status === "running").length },
@@ -61,6 +69,11 @@ export default async function CampaignsPage() {
                 <th className="num">Revenue</th>
                 <th className="num">Return</th>
                 <th>Status</th>
+                {manage && (
+                  <th>
+                    <span className="sr-only">Actions</span>
+                  </th>
+                )}
               </tr>
             </thead>
             <tbody>
@@ -69,8 +82,13 @@ export default async function CampaignsPage() {
                   <td>
                     <p className="font-semibold">{r.name}</p>
                     <p className="text-xs text-muted">
-                      {r.type} · {r.channel}
+                      {[r.type, r.channel, r.owner && `PIC ${r.owner}`].filter(Boolean).join(" · ")}
                     </p>
+                    {(r.linkedLeads > 0 || r.linkedAccounts > 0) && (
+                      <p className="text-xs text-muted">
+                        Linked: {r.linkedLeads} leads · {r.linkedAccounts} accounts
+                      </p>
+                    )}
                   </td>
                   <td className="whitespace-nowrap">
                     {fday(r.starts)} – {fday(r.ends)}
@@ -82,6 +100,14 @@ export default async function CampaignsPage() {
                   <td>
                     <StatusPill map={CAMPAIGN_STATUS} value={r.status} />
                   </td>
+                  {manage && (
+                    <td>
+                      <CampaignRowActions
+                        people={people}
+                        c={{ id: r.id, name: r.name, type: r.type, channel: r.channel, status: r.status, startsOn: r.starts, endsOn: r.ends, budget: r.budget, ownerId: r.ownerId, resultLeads: r.leads, resultRevenue: r.revenue, notes: r.notes }}
+                      />
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>

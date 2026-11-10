@@ -1,5 +1,8 @@
 import type { Metadata } from "next";
 import { desc, sql } from "drizzle-orm";
+import { EventRowActions, NewEventButton } from "@/components/forms/crm-forms";
+import { canManageMarketing } from "@/lib/permissions";
+import { allCampaignOptions, peopleOptions } from "@/lib/queries/options";
 import { PageHeader } from "@/components/page/page-header";
 import { Empty, Panel } from "@/components/ui/panel";
 import { StatusPill } from "@/components/ui/pill";
@@ -13,10 +16,11 @@ import { now } from "@/lib/scope";
 export const metadata: Metadata = { title: "Event List" };
 
 export default async function EventListPage() {
-  await getCurrentUser();
+  const user = await getCurrentUser();
+  const manage = canManageMarketing(user);
   const today = await now();
   const e = schema.events;
-  const rows = await getDb()
+  const [rows, people, campaigns] = await Promise.all([getDb()
     .select({
       id: e.id,
       name: e.name,
@@ -28,16 +32,20 @@ export default async function EventListPage() {
       cost: e.actualCost,
       visitors: e.visitors,
       leads: e.leadsCount,
-      captured: sql<number>`(select count(*)::int from ${schema.eventLeads} where ${schema.eventLeads.eventId} = ${e.id})`,
+      deals: e.dealsCount,
+      revenue: e.revenue,
+      campaignId: e.campaignId,
+      ownerId: e.ownerId,
+      captured: sql<number>`(select count(*)::int from ${schema.eventLeads} where ${schema.eventLeads.eventId} = ${sql.identifier("events")}.${sql.identifier("id")})`,
     })
     .from(e)
-    .orderBy(desc(e.heldOn));
+    .orderBy(desc(e.heldOn)), manage ? peopleOptions() : Promise.resolve([]), manage ? allCampaignOptions() : Promise.resolve([])]);
   const upcoming = rows.filter((r) => r.status === "scheduled");
   const next = upcoming.at(-1);
 
   return (
     <>
-      <PageHeader href="/event/list" />
+      <PageHeader href="/event/list" actions={manage && <NewEventButton people={people} campaigns={campaigns} />} />
       <Stats
         items={[
           { label: "Upcoming", value: upcoming.length, hint: next ? `Next: ${next.name}, ${fdate(next.on)}` : undefined },
@@ -61,6 +69,11 @@ export default async function EventListPage() {
                 <th className="num">Visitors</th>
                 <th className="num">Leads</th>
                 <th>Status</th>
+                {manage && (
+                  <th>
+                    <span className="sr-only">Actions</span>
+                  </th>
+                )}
               </tr>
             </thead>
             <tbody>
@@ -89,6 +102,15 @@ export default async function EventListPage() {
                     <td>
                       <StatusPill map={EVENT_STATUS} value={r.status} />
                     </td>
+                    {manage && (
+                      <td>
+                        <EventRowActions
+                          people={people}
+                          campaigns={campaigns}
+                          e={{ id: r.id, name: r.name, type: r.type, heldOn: r.on, location: r.location, status: r.status, campaignId: r.campaignId, ownerId: r.ownerId, budget: r.budget, actualCost: r.cost, visitors: r.visitors, leadsCount: r.leads, dealsCount: r.deals, revenue: r.revenue }}
+                        />
+                      </td>
+                    )}
                   </tr>
                 );
               })}

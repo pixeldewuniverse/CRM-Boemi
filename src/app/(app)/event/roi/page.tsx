@@ -30,7 +30,7 @@ export default async function EventRoiPage() {
           { label: "Cost per lead", value: leads ? rpk(cost / leads) : "—", hint: `${leads} leads` },
         ]}
       />
-      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.6fr)]">
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.6fr)]">
         <Panel title="Revenue per Rp 1 spent" description="Finished events.">
           <BarList
             rows={done.map((e) => ({ label: e.name, value: e.actualCost ? e.revenue / e.actualCost : 0 }))}

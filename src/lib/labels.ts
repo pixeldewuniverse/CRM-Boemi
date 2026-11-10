@@ -30,6 +30,26 @@ export const QUOTE_STATUS: Record<string, Def> = {
   expired: d("Expired", "neutral"),
 };
 
+/** Order statuses used from now on (shipping is tracked separately). */
+export const ORDER_FLOW = ["draft", "confirmed", "processing", "completed", "cancelled"] as const;
+export const DELIVERY_STATUS: Record<string, Def> = {
+  pending: d("Not shipped", "neutral"),
+  shipped: d("Shipped", "accent"),
+  delivered: d("Delivered", "ok"),
+};
+export const PAYMENT_KIND: Record<string, Def> = {
+  deposit: d("Deposit", "warn"),
+  settlement: d("Settlement", "ok"),
+  other: d("Other", "neutral"),
+};
+export const PAYMENT_METHODS = ["Transfer", "Cash", "QRIS", "Card", "Giro"] as const;
+export const QUOTE_APPROVAL: Record<string, Def> = {
+  not_required: d("No approval needed", "neutral"),
+  pending: d("Discount approval pending", "warn"),
+  approved: d("Discount approved", "ok"),
+  rejected: d("Discount rejected", "bad"),
+};
+
 export const ORDER_STATUS: Record<string, Def> = {
   draft: d("Draft", "neutral"),
   confirmed: d("Confirmed", "info"),
@@ -116,3 +136,14 @@ export const LOST_REASONS = ["Price too high", "Chose a competitor", "No budget 
 export const ACTIVITY_TYPES = ["Follow-up", "Call", "WhatsApp", "Email", "Visit", "Meeting", "Send samples", "Brief", "Design"] as const;
 export const DISQUALIFY_REASONS = ["No budget", "Not a fit", "Unresponsive", "Duplicate", "Other"] as const;
 export const VISIT_PURPOSES = ["Account visit", "Product demo", "Sample delivery", "Restock check", "Payment collection", "Complaint handling"] as const;
+export const ACTIVITY_LOG_TYPES = ["Call", "WhatsApp", "Email", "Meeting", "Note"] as const;
+export const TARGET_METRICS = {
+  revenue: { label: "Revenue", money: true },
+  orders: { label: "Orders", money: false },
+  visits: { label: "Visits", money: false },
+  new_customers: { label: "New customers", money: false },
+} as const;
+export type TargetMetric = keyof typeof TARGET_METRICS;
+export const PRODUCT_UNITS = ["pcs", "bottle", "jar", "box", "pack", "jerrycan", "set"] as const;
+export const CAMPAIGN_TYPES = ["Product launch", "Outbound", "Corporate gifting", "Brand / CSR", "Promotion", "Content"] as const;
+export const EVENT_TYPES = ["B2B exhibition", "Pop-up", "Brand / CSR", "Workshop", "Sampling"] as const;

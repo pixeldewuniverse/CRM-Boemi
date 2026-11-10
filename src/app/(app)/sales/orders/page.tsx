@@ -10,12 +10,14 @@ import { Stats } from "@/components/ui/stats";
 import { getDb, schema } from "@/db";
 import { getCurrentUser } from "@/lib/auth";
 import { fdate, rp, rpk, ym } from "@/lib/format";
-import { ORDER_STATUS } from "@/lib/labels";
+import { DELIVERY_STATUS, ORDER_FLOW, ORDER_STATUS } from "@/lib/labels";
+import { NewOrderButton } from "@/components/forms/doc-forms";
+import { docFormOptions } from "@/lib/queries/docs";
 import { now, ownedBy } from "@/lib/scope";
 
 export const metadata: Metadata = { title: "Orders" };
 const HREF = "/sales/orders";
-const STATUSES = ["confirmed", "processing", "shipped", "delivered", "completed", "cancelled"] as const;
+const STATUSES = ORDER_FLOW;
 type Status = (typeof STATUSES)[number];
 
 export default async function OrdersPage({ searchParams }: PageProps<"/sales/orders">) {
@@ -28,7 +30,7 @@ export default async function OrdersPage({ searchParams }: PageProps<"/sales/ord
   const o = schema.orders;
   const scope = ownedBy(user, o.salesId);
 
-  const [rows, counts, [month], [outstanding]] = await Promise.all([
+  const [rows, counts, [month], [outstanding], form] = await Promise.all([
     db
       .select({
         id: o.id,
@@ -38,6 +40,7 @@ export default async function OrdersPage({ searchParams }: PageProps<"/sales/ord
         total: o.total,
         paid: o.paidAmount,
         payment: o.paymentStatus,
+        delivery: o.deliveryStatus,
         dp: o.depositPct,
         reference: o.reference,
         accountId: schema.customers.id,
@@ -60,19 +63,20 @@ export default async function OrdersPage({ searchParams }: PageProps<"/sales/ord
     db
       .select({ value: sql<number>`coalesce(sum(${o.total} - ${o.paidAmount}), 0)`.mapWith(Number) })
       .from(o)
-      .where(and(scope, ne(o.status, "cancelled"), ne(o.paymentStatus, "paid"))),
+      .where(and(scope, ne(o.status, "cancelled"), ne(o.status, "draft"), ne(o.paymentStatus, "paid"))),
+    docFormOptions(user),
   ]);
   const byStatus = Object.fromEntries(counts.map((c) => [c.status, c.n]));
-  const inProgress = (byStatus.confirmed ?? 0) + (byStatus.processing ?? 0) + (byStatus.shipped ?? 0);
+  const inProgress = (byStatus.confirmed ?? 0) + (byStatus.processing ?? 0);
 
   return (
     <>
-      <PageHeader href={HREF} />
+      <PageHeader href={HREF} actions={form && <NewOrderButton {...form} />} />
       <Stats
         items={[
           { label: "Orders this month", value: month.n },
           { label: "Revenue this month", value: rpk(month.value ?? 0), hint: "Incl. PPN, excl. cancelled" },
-          { label: "In progress", value: inProgress, hint: "Confirmed → shipped" },
+          { label: "In progress", value: inProgress, hint: "Confirmed or processing" },
           { label: "Outstanding payments", value: rpk(outstanding.value), tone: outstanding.value ? "warn" : "default" },
         ]}
       />
@@ -105,7 +109,9 @@ export default async function OrdersPage({ searchParams }: PageProps<"/sales/ord
               {rows.map((r) => (
                 <tr key={r.id}>
                   <td>
-                    <p className="font-semibold">{r.no}</p>
+                    <Link href={`${HREF}/${r.id}`} className="font-semibold text-accent hover:underline">
+                      {r.no}
+                    </Link>
                     <p className="text-xs text-muted">
                       {r.lines} items · {r.reference ?? "—"}
                     </p>
@@ -120,12 +126,17 @@ export default async function OrdersPage({ searchParams }: PageProps<"/sales/ord
                   <td className="num font-semibold">{rp(r.total)}</td>
                   <td>
                     <PaymentPill status={r.payment} depositPct={r.dp} />
-                    {r.payment !== "paid" && (
+                    {r.payment !== "paid" && r.status !== "cancelled" && (
                       <p className="mt-1 text-xs tabular-nums text-muted">Due {rp(r.total - r.paid)}</p>
                     )}
                   </td>
                   <td>
                     <StatusPill map={ORDER_STATUS} value={r.status} />
+                    {r.status !== "cancelled" && r.status !== "draft" && (
+                      <p className="mt-1">
+                        <StatusPill map={DELIVERY_STATUS} value={r.delivery} />
+                      </p>
+                    )}
                   </td>
                   <td>{r.owner}</td>
                 </tr>

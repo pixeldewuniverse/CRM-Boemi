@@ -11,6 +11,8 @@ import { daysBetween, fdate, rp } from "@/lib/format";
 import { QUOTE_STATUS } from "@/lib/labels";
 import { PRICE_TIERS, type PriceTier } from "@/lib/pricing";
 import { now, ownedBy } from "@/lib/scope";
+import { NewQuotationButton } from "@/components/forms/doc-forms";
+import { docFormOptions } from "@/lib/queries/docs";
 
 export const metadata: Metadata = { title: "Quotations" };
 const HREF = "/sales/quotations";
@@ -26,7 +28,7 @@ export default async function QuotationsPage({ searchParams }: PageProps<"/sales
   const qt = schema.quotations;
   const scope = ownedBy(user, qt.ownerId);
 
-  const [rows, counts, itemCounts] = await Promise.all([
+  const [rows, counts, itemCounts, form] = await Promise.all([
     db
       .select({
         id: qt.id,
@@ -37,6 +39,7 @@ export default async function QuotationsPage({ searchParams }: PageProps<"/sales
         tier: qt.priceTier,
         discount: qt.discountPct,
         total: qt.total,
+        approval: qt.approval,
         accountId: schema.customers.id,
         account: schema.customers.name,
         deal: schema.opportunities.title,
@@ -53,13 +56,14 @@ export default async function QuotationsPage({ searchParams }: PageProps<"/sales
       .select({ id: schema.quotationItems.quotationId, n: count() })
       .from(schema.quotationItems)
       .groupBy(schema.quotationItems.quotationId),
+    docFormOptions(user),
   ]);
   const byStatus = Object.fromEntries(counts.map((c) => [c.status, c.n]));
   const lines = Object.fromEntries(itemCounts.map((c) => [c.id, c.n]));
 
   return (
     <>
-      <PageHeader href={HREF} />
+      <PageHeader href={HREF} actions={form && <NewQuotationButton {...form} />} />
       <FilterChips
         pathname={HREF}
         param="status"
@@ -93,7 +97,9 @@ export default async function QuotationsPage({ searchParams }: PageProps<"/sales
                 return (
                   <tr key={r.id}>
                     <td>
-                      <p className="font-semibold">{r.no}</p>
+                      <Link href={`${HREF}/${r.id}`} className="font-semibold text-accent hover:underline">
+                        {r.no}
+                      </Link>
                       <p className="text-xs text-muted">{lines[r.id] ?? 0} items{r.discount ? ` · ${r.discount}% off` : ""}</p>
                     </td>
                     <td>
@@ -111,6 +117,8 @@ export default async function QuotationsPage({ searchParams }: PageProps<"/sales
                     <td className="num font-semibold">{rp(r.total)}</td>
                     <td>
                       <StatusPill map={QUOTE_STATUS} value={r.status} />
+                      {r.approval === "pending" && <p className="mt-1 text-xs font-semibold text-warn">Discount approval pending</p>}
+                      {r.approval === "rejected" && <p className="mt-1 text-xs font-semibold text-bad">Discount rejected</p>}
                     </td>
                     <td>{r.owner}</td>
                   </tr>
