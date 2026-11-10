@@ -25,9 +25,14 @@ import { AddColumn, ColumnMenu, LabelEditor } from "./columns-ui";
 import { ItemPanel } from "./item-panel";
 import { KanbanView } from "./kanban-view";
 import { TimelineView } from "./timeline-view";
+import { CalendarView } from "./calendar-view";
+import { WorkloadView } from "./workload-view";
+import { DashboardView } from "./dashboard-view";
 import { Toolbar } from "./toolbar";
 import { Faces, Popover, rangeLabel, shortDate, toast } from "./ui";
 import type { BoardAccessProps, Column, GroupData, GroupSummary, ItemRow, Opt, Person } from "./types";
+
+export type BoardView = "table" | "kanban" | "timeline" | "calendar" | "workload" | "dashboard";
 
 export type BoardTableProps = {
   boardId: string;
@@ -47,7 +52,9 @@ export type BoardTableProps = {
   truncated: boolean;
   realGroups: { id: string; name: string; color: string }[];
   /** Table (default) or Kanban; Kanban gets every matching item in one list. */
-  view?: "table" | "kanban" | "timeline";
+  view?: BoardView;
+  /** Project metadata for the dashboard (null on team boards). */
+  project?: { budget: number | null; actualCost: number | null; dueOn: string | null } | null;
   dependencyMode?: "strict" | "flexible" | "none";
   archived: boolean;
   today: string;
@@ -152,6 +159,7 @@ export function BoardTable(props: BoardTableProps) {
   const dragOff = props.sorted || props.virtual || !access.edit || props.archived;
   const kanban = props.view === "kanban";
   const timeline = props.view === "timeline";
+  const other = props.view === "calendar" || props.view === "workload" || props.view === "dashboard";
   const canAdd = access.edit && !props.archived && !props.virtual;
 
   const allItems = () => [...groups.flatMap((g) => g.items), ...Object.values(subs).flat()];
@@ -652,10 +660,16 @@ export function BoardTable(props: BoardTableProps) {
           if (item) setOpenId(item.id);
         }}
       />
-      {props.sorted && !kanban && !timeline && <p className="text-[13px] text-muted">Sorted — drag and drop is off until you go back to manual order.</p>}
+      {props.sorted && !kanban && !timeline && !other && <p className="text-[13px] text-muted">Sorted — drag and drop is off until you go back to manual order.</p>}
       {props.truncated && <p className="text-[13px] text-warn">Showing the first 500 matching items. Narrow the filters to see the rest.</p>}
 
-      {timeline ? (
+      {props.view === "calendar" ? (
+        <CalendarView items={groups.flatMap((g) => g.items)} ctx={ctx} statusColumn={cols.find((c) => c.key === "status")} />
+      ) : props.view === "workload" ? (
+        <WorkloadView items={groups.flatMap((g) => g.items)} ctx={ctx} statusColumn={cols.find((c) => c.key === "status")} />
+      ) : props.view === "dashboard" ? (
+        <DashboardView groups={groups} ctx={ctx} columns={sortedCols} project={props.project ?? null} />
+      ) : timeline ? (
         <TimelineView groups={groups} ctx={ctx} statusColumn={cols.find((c) => c.key === "status")} mode={props.dependencyMode ?? "flexible"} canEditBoard={access.edit && !props.archived} />
       ) : kanban ? (
         (() => {
@@ -682,7 +696,7 @@ export function BoardTable(props: BoardTableProps) {
         </>
       )}
 
-      {ctx.manage && !props.virtual && !kanban && !timeline && (
+      {ctx.manage && !props.virtual && !kanban && !timeline && !other && (
         <button
           type="button"
           className="btn self-start"

@@ -27,7 +27,7 @@ export function Toolbar({
   manage: boolean;
   canAdd: boolean;
   onNewItem: () => void;
-  view?: "table" | "kanban" | "timeline";
+  view?: "table" | "kanban" | "timeline" | "calendar" | "workload" | "dashboard";
 }) {
   const router = useRouter();
   const pathname = usePathname();

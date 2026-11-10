@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { and, asc, eq, inArray, or, sql } from "drizzle-orm";
-import { BoardTable } from "@/components/board-table/board-table";
+import { BoardTable, type BoardView } from "@/components/board-table/board-table";
 import type { Column, GroupData, ItemRow, Person } from "@/components/board-table/types";
 import { Toaster } from "@/components/board-table/ui";
 import { ArchiveBoardButton, EditBoardButton, MembersButton, ProjectStatusActions } from "@/components/forms/board-forms";
@@ -19,7 +19,6 @@ import { pendingRequestFor } from "@/lib/approvals";
 import { now } from "@/lib/scope";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const SOON = ["Calendar", "Workload", "Dashboard"];
 
 export async function generateMetadata({ params }: PageProps<"/projects/[boardId]">): Promise<Metadata> {
   const [{ boardId }, user] = await Promise.all([params, getCurrentUser()]);
@@ -35,9 +34,10 @@ export default async function BoardPage({ params, searchParams }: PageProps<"/pr
   const found = await loadBoard(user, boardId);
   if (!found) notFound();
   const { board, access } = found;
-  const kanban = sp.view === "kanban";
-  const timeline = sp.view === "timeline";
-  const view = kanban ? "kanban" : timeline ? "timeline" : "table";
+  const VIEWS = ["kanban", "timeline", "calendar", "workload", "dashboard"] as const;
+  const view: BoardView = VIEWS.find((v) => v === sp.view) ?? "table";
+  const kanban = view === "kanban";
+  const allInGroups = view !== "table" && view !== "kanban";
   const p = { ...parseBoardParams(sp), ...(view !== "table" ? { groupBy: undefined } : {}) };
   // Filters carry over between Table and Kanban; view-specific params don't.
   const keepFilters = Object.fromEntries(["q", "person", "status", "group", "from", "to", "sort", "dir"].filter((k) => typeof sp[k] === "string" && sp[k]).map((k) => [k, sp[k] as string]));
@@ -76,8 +76,8 @@ export default async function BoardPage({ params, searchParams }: PageProps<"/pr
 
   let groups: GroupData[];
   let truncated = false;
-  if (timeline) {
-    // Gantt: every matching item, in the board's groups (sorted by start date unless a sort is chosen).
+  if (allInGroups) {
+    // Timeline, Calendar, Workload, Dashboard: every matching item (max 500) in the board's groups, by start date unless sorted.
     const res = await loadAllMatching(boardId, p.sort ? p : { ...p, sort: "timeline_start" }, colKeys);
     truncated = res.truncated;
     groups = groupRows
@@ -175,10 +175,15 @@ export default async function BoardPage({ params, searchParams }: PageProps<"/pr
 
       <nav aria-label="Board views" className="flex gap-1 overflow-x-auto border-b border-line">
         {[
-          { label: "Main Table", on: view === "table", query: { ...keepFilters } },
-          { label: "Kanban", on: kanban, query: { ...keepFilters, view: "kanban" } },
-          { label: "Timeline", on: timeline, query: { ...keepFilters, view: "timeline" } },
-        ].map((v) => (
+          { label: "Main Table", v: "table" },
+          { label: "Kanban", v: "kanban" },
+          { label: "Timeline", v: "timeline" },
+          { label: "Calendar", v: "calendar" },
+          { label: "Workload", v: "workload" },
+          { label: "Dashboard", v: "dashboard" },
+        ]
+          .map((v) => ({ ...v, on: view === v.v, query: v.v === "table" ? keepFilters : { ...keepFilters, view: v.v } }))
+          .map((v) => (
           <Link
             key={v.label}
             href={{ pathname: `/projects/${board.id}`, query: v.query }}
@@ -187,11 +192,6 @@ export default async function BoardPage({ params, searchParams }: PageProps<"/pr
           >
             {v.label}
           </Link>
-        ))}
-        {SOON.map((v) => (
-          <span key={v} aria-disabled="true" title="Coming in a next batch" className="whitespace-nowrap border-b-2 border-transparent px-3 py-2 text-[13px] text-muted opacity-60">
-            {v}
-          </span>
         ))}
       </nav>
 
@@ -213,6 +213,7 @@ export default async function BoardPage({ params, searchParams }: PageProps<"/pr
         realGroups={groupRows.map((g) => ({ id: g.id, name: g.name, color: g.color }))}
         view={view}
         dependencyMode={board.dependencyMode}
+        project={project ? { budget: board.budget, actualCost: board.actualCost, dueOn: board.dueOn } : null}
         archived={archived}
         today={today}
       />
