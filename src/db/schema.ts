@@ -782,6 +782,196 @@ export const approvalActions = pgTable(
   (t) => [index("approval_actions_request_idx").on(t.requestId, t.position)],
 );
 
+/* ─────────────────────── Boards & projects ─────────────────────── */
+
+export const boardKindEnum = pgEnum("board_kind", ["project", "team", "template"]);
+export const boardVisibilityEnum = pgEnum("board_visibility", ["department", "private", "shared"]);
+export const projectStatusEnum = pgEnum("project_status", ["draft", "pending_approval", "active", "on_hold", "completed", "cancelled"]);
+export const dependencyModeEnum = pgEnum("dependency_mode", ["strict", "flexible", "none"]);
+export const dependencyTypeEnum = pgEnum("dependency_type", ["FS", "SS", "FF", "SF"]);
+export const boardMemberRoleEnum = pgEnum("board_member_role", ["owner", "editor", "viewer"]);
+
+/** A board is a project (with project metadata) or a plain team board. Workspace = department. */
+export const boards = pgTable(
+  "boards",
+  {
+    id: id(),
+    kind: boardKindEnum("kind").notNull().default("team"),
+    name: text("name").notNull(),
+    description: text("description"),
+    departmentId: uuid("department_id").references(() => departments.id, { onDelete: "set null" }),
+    ownerId: uuid("owner_id").references(() => users.id, { onDelete: "set null" }),
+    visibility: boardVisibilityEnum("visibility").notNull().default("department"),
+    // Project metadata (null on team boards)
+    code: text("code"),
+    projectStatus: projectStatusEnum("project_status"),
+    priority: text("priority"),
+    customerId: uuid("customer_id").references(() => customers.id, { onDelete: "set null" }),
+    opportunityId: uuid("opportunity_id").references(() => opportunities.id, { onDelete: "set null" }),
+    budget: rupiah("budget"),
+    actualCost: rupiah("actual_cost"),
+    startOn: date("start_on"),
+    dueOn: date("due_on"),
+    approvalRequestId: uuid("approval_request_id").references(() => approvalRequests.id, { onDelete: "set null" }),
+    dependencyMode: dependencyModeEnum("dependency_mode").notNull().default("flexible"),
+    archivedAt: timestamp("archived_at", { withTimezone: true }),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [uniqueIndex("boards_code_uq").on(t.code).where(sql`${t.code} is not null`), index("boards_department_idx").on(t.departmentId)],
+);
+
+export const boardMembers = pgTable(
+  "board_members",
+  {
+    boardId: uuid("board_id")
+      .notNull()
+      .references(() => boards.id, { onDelete: "cascade" }),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    role: boardMemberRoleEnum("role").notNull().default("editor"),
+    /** Like monday's "can only edit items assigned to them". */
+    editAssignedOnly: boolean("edit_assigned_only").notNull().default(false),
+  },
+  (t) => [primaryKey({ columns: [t.boardId, t.userId] }), index("board_members_user_idx").on(t.userId)],
+);
+
+export const boardGroups = pgTable(
+  "board_groups",
+  {
+    id: id(),
+    boardId: uuid("board_id")
+      .notNull()
+      .references(() => boards.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    color: text("color").notNull().default("c1"),
+    position: doublePrecision("position").notNull(),
+    collapsed: boolean("collapsed").notNull().default(false),
+  },
+  (t) => [index("board_groups_board_idx").on(t.boardId, t.position)],
+);
+
+/**
+ * Columns. System columns (name, status, people, timeline, priority,
+ * estimate_hours, dependency, link_account, link_deal) map to real item
+ * fields; custom columns keep their value in board_items.values[key].
+ * Status/dropdown settings: { labels: [{ key, label, color, category }] }.
+ */
+export const boardColumns = pgTable(
+  "board_columns",
+  {
+    id: id(),
+    boardId: uuid("board_id")
+      .notNull()
+      .references(() => boards.id, { onDelete: "cascade" }),
+    key: text("key").notNull(),
+    title: text("title").notNull(),
+    type: text("type").notNull(),
+    settings: jsonb("settings").$type<Record<string, unknown>>().notNull().default(sql`'{}'::jsonb`),
+    position: doublePrecision("position").notNull(),
+    width: integer("width").notNull().default(160),
+    hidden: boolean("hidden").notNull().default(false),
+    isSystem: boolean("is_system").notNull().default(false),
+  },
+  (t) => [uniqueIndex("board_columns_key_uq").on(t.boardId, t.key)],
+);
+
+export const boardItems = pgTable(
+  "board_items",
+  {
+    id: id(),
+    boardId: uuid("board_id")
+      .notNull()
+      .references(() => boards.id, { onDelete: "cascade" }),
+    groupId: uuid("group_id")
+      .notNull()
+      .references(() => boardGroups.id, { onDelete: "cascade" }),
+    parentItemId: uuid("parent_item_id").references((): AnyPgColumn => boardItems.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    position: doublePrecision("position").notNull(),
+    statusKey: text("status_key"),
+    priority: text("priority"),
+    startOn: date("start_on"),
+    dueOn: date("due_on"),
+    estimateHours: doublePrecision("estimate_hours"),
+    customerId: uuid("customer_id").references(() => customers.id, { onDelete: "set null" }),
+    opportunityId: uuid("opportunity_id").references(() => opportunities.id, { onDelete: "set null" }),
+    isMilestone: boolean("is_milestone").notNull().default(false),
+    values: jsonb("values").$type<Record<string, unknown>>().notNull().default(sql`'{}'::jsonb`),
+    createdBy: uuid("created_by").references(() => users.id, { onDelete: "set null" }),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+    archivedAt: timestamp("archived_at", { withTimezone: true }),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [
+    index("board_items_group_idx").on(t.boardId, t.groupId, t.position),
+    index("board_items_parent_idx").on(t.parentItemId),
+    index("board_items_due_idx").on(t.dueOn),
+  ],
+);
+
+export const boardItemAssignees = pgTable(
+  "board_item_assignees",
+  {
+    itemId: uuid("item_id")
+      .notNull()
+      .references(() => boardItems.id, { onDelete: "cascade" }),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+  },
+  (t) => [primaryKey({ columns: [t.itemId, t.userId] }), index("board_item_assignees_user_idx").on(t.userId)],
+);
+
+export const boardItemDependencies = pgTable(
+  "board_item_dependencies",
+  {
+    predecessorId: uuid("predecessor_id")
+      .notNull()
+      .references(() => boardItems.id, { onDelete: "cascade" }),
+    successorId: uuid("successor_id")
+      .notNull()
+      .references(() => boardItems.id, { onDelete: "cascade" }),
+    type: dependencyTypeEnum("type").notNull().default("FS"),
+    lagDays: integer("lag_days").notNull().default(0),
+  },
+  (t) => [primaryKey({ columns: [t.predecessorId, t.successorId] }), index("board_item_deps_successor_idx").on(t.successorId)],
+);
+
+/** Per-item change log (separate from the global audit trail). */
+export const boardItemActivity = pgTable(
+  "board_item_activity",
+  {
+    id: id(),
+    itemId: uuid("item_id")
+      .notNull()
+      .references(() => boardItems.id, { onDelete: "cascade" }),
+    actorId: uuid("actor_id").references(() => users.id, { onDelete: "set null" }),
+    field: text("field").notNull(),
+    from: jsonb("from").$type<unknown>(),
+    to: jsonb("to").$type<unknown>(),
+    createdAt: createdAt(),
+  },
+  (t) => [index("board_item_activity_item_idx").on(t.itemId, t.createdAt)],
+);
+
+export const boardViews = pgTable(
+  "board_views",
+  {
+    id: id(),
+    boardId: uuid("board_id")
+      .notNull()
+      .references(() => boards.id, { onDelete: "cascade" }),
+    type: text("type").notNull().default("table"), // table | kanban | timeline | calendar | workload | dashboard
+    name: text("name").notNull(),
+    config: jsonb("config").$type<Record<string, unknown>>().notNull().default(sql`'{}'::jsonb`),
+    position: doublePrecision("position").notNull(),
+  },
+  (t) => [index("board_views_board_idx").on(t.boardId, t.position)],
+);
+
 /* ─────────────────────────── KPI ─────────────────────────── */
 
 export const kpiTargets = pgTable(

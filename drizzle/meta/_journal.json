@@ -64,6 +64,13 @@
       "when": 1794297731399,
       "tag": "0008_rbac_departments_approvals",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1794301049909,
+      "tag": "0009_boards",
+      "breakpoints": true
     }
   ]
 }

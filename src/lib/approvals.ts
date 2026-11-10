@@ -241,8 +241,14 @@ async function applyOutcome(tx: Tx, entityType: ApprovalEntity, entityId: string
         .set({ approval: outcome, approvalNote: note, approvedBy: by, approvedAt: at })
         .where(and(eq(schema.quotations.id, entityId), eq(schema.quotations.approval, "pending")));
       break;
+    case "project":
+      await tx
+        .update(schema.boards)
+        .set({ projectStatus: outcome === "approved" ? "active" : "draft" })
+        .where(and(eq(schema.boards.id, entityId), eq(schema.boards.projectStatus, "pending_approval")));
+      break;
     default:
-      // project / project_budget / purchase_request: wired up when those modules are built (Batch 5).
+      // project_budget / purchase_request: wired up with the later project batches.
       break;
   }
 }

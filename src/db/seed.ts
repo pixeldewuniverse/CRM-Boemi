@@ -19,6 +19,7 @@ import bcrypt from "bcryptjs";
 import { and, eq, inArray, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
+import { DEFAULT_COLUMNS, DEFAULT_STATUS_LABELS } from "../lib/boards/columns";
 import { normalizePhone } from "../lib/phone";
 import { lineTotals, tierForSegment, unitPrice } from "../lib/pricing";
 import demo from "./demo/demo-data.json";
@@ -144,6 +145,7 @@ async function main() {
         await ensureBatch2Demo(tx as unknown as Db);
         await ensureBatch3Demo(tx as unknown as Db);
         await ensureBatch4Demo(tx as unknown as Db);
+        await ensureBatch5Demo(tx as unknown as Db);
       });
       return console.log("Demo data already present — skipping seed (batch 1 demo data checked).");
     }
@@ -165,6 +167,7 @@ async function main() {
       await ensureBatch2Demo(tx as unknown as Db);
       await ensureBatch3Demo(tx as unknown as Db);
       await ensureBatch4Demo(tx as unknown as Db);
+      await ensureBatch5Demo(tx as unknown as Db);
     });
     console.log("Seeded demo data: 8 users, 14 products, 12 accounts, leads, deals, quotations, orders (+12-month history), visits, tasks, campaigns, events, content.");
   } finally {
@@ -485,6 +488,150 @@ async function ensureBatch4Demo(db: Db) {
            'pending'
       from approval_requests r join approval_flow_steps s on s.flow_id = r.flow_id and s.position = 1
      where r.status = 'pending' and not exists (select 1 from approval_actions a where a.request_id = r.id)`);
+}
+
+/* ── batch 5a: project board + team board ── */
+type DemoItem = { g: number; name: string; status: string; people: string[]; start?: string; due?: string; est?: number; prio?: string; ms?: boolean; v?: Record<string, unknown>; subs?: { name: string; status: string; people: string[]; due?: string; est?: number }[] };
+
+async function seedBoard(
+  db: Db,
+  b: { kind: "project" | "team"; name: string; description: string; dept: string; owner: string; code?: string; status?: "active"; customerId?: string | null; opportunityId?: string | null; budget?: number; actualCost?: number; startOn?: string; dueOn?: string; priority?: string },
+  groups: { name: string; color: string }[],
+  custom: { key: string; title: string; type: string; width: number; settings?: Record<string, unknown> }[],
+  members: [string, "owner" | "editor" | "viewer", boolean][],
+  items: DemoItem[],
+  deps: [number, number, "FS" | "SS", number][],
+  uid: (e: string) => string | undefined,
+) {
+  const [dept] = await db.select({ id: schema.departments.id }).from(schema.departments).where(eq(schema.departments.code, b.dept));
+  const ownerId = uid(b.owner) ?? null;
+  const [board] = await db
+    .insert(schema.boards)
+    .values({ kind: b.kind, name: b.name, description: b.description, departmentId: dept?.id ?? null, ownerId, visibility: "department", code: b.code ?? null, projectStatus: b.status ?? null, priority: b.priority ?? null, customerId: b.customerId ?? null, opportunityId: b.opportunityId ?? null, budget: b.budget ?? null, actualCost: b.actualCost ?? null, startOn: b.startOn ?? null, dueOn: b.dueOn ?? null })
+    .returning({ id: schema.boards.id });
+  const cols = [...DEFAULT_COLUMNS.map((c) => ({ ...c, isSystem: true })), ...custom.map((c) => ({ ...c, isSystem: false, hidden: false }))];
+  await db.insert(schema.boardColumns).values(cols.map((c, i) => ({ boardId: board.id, key: c.key, title: c.title, type: c.type, width: c.width, position: (i + 1) * 1024, settings: c.settings ?? {}, hidden: c.hidden ?? false, isSystem: c.isSystem })));
+  const groupIds = (await db.insert(schema.boardGroups).values(groups.map((g, i) => ({ boardId: board.id, name: g.name, color: g.color, position: (i + 1) * 1024 }))).returning({ id: schema.boardGroups.id })).map((r) => r.id);
+  await db.insert(schema.boardViews).values({ boardId: board.id, type: "table", name: "Main Table", position: 1024, config: {} });
+  const memberRows = members.map(([e, role, only]) => ({ boardId: board.id, userId: uid(e)!, role, editAssignedOnly: only })).filter((m) => m.userId);
+  if (memberRows.length) await db.insert(schema.boardMembers).values(memberRows).onConflictDoNothing();
+
+  const done = (k: string) => DEFAULT_STATUS_LABELS.find((l) => l.key === k)?.category === "done";
+  const ids: string[] = [];
+  const counters = new Map<number, number>();
+  for (const it of items) {
+    const pos = (counters.get(it.g) ?? 0) + 1024;
+    counters.set(it.g, pos);
+    const [row] = await db
+      .insert(schema.boardItems)
+      .values({ boardId: board.id, groupId: groupIds[it.g], name: it.name, position: pos, statusKey: it.status, priority: it.prio ?? null, startOn: it.start ? D(it.start) : null, dueOn: it.due ? D(it.due) : null, estimateHours: it.est ?? null, isMilestone: it.ms ?? false, values: it.v ?? {}, createdBy: ownerId, completedAt: done(it.status) ? T(it.due ?? "2026-10-20", "16:00") : null })
+      .returning({ id: schema.boardItems.id });
+    ids.push(row.id);
+    const people = it.people.map(uid).filter((x): x is string => Boolean(x));
+    if (people.length) await db.insert(schema.boardItemAssignees).values(people.map((userId) => ({ itemId: row.id, userId })));
+    if (ownerId) await db.insert(schema.boardItemActivity).values({ itemId: row.id, actorId: ownerId, field: "created", from: null, to: it.name });
+    let sp = 0;
+    for (const s of it.subs ?? []) {
+      sp += 1024;
+      const [sub] = await db
+        .insert(schema.boardItems)
+        .values({ boardId: board.id, groupId: groupIds[it.g], parentItemId: row.id, name: s.name, position: sp, statusKey: s.status, dueOn: s.due ? D(s.due) : null, estimateHours: s.est ?? null, createdBy: ownerId, completedAt: done(s.status) ? T(s.due ?? "2026-10-20", "16:00") : null })
+        .returning({ id: schema.boardItems.id });
+      const sPeople = s.people.map(uid).filter((x): x is string => Boolean(x));
+      if (sPeople.length) await db.insert(schema.boardItemAssignees).values(sPeople.map((userId) => ({ itemId: sub.id, userId })));
+    }
+  }
+  if (deps.length) await db.insert(schema.boardItemDependencies).values(deps.map(([p, s, type, lagDays]) => ({ predecessorId: ids[p], successorId: ids[s], type, lagDays })));
+  return board.id;
+}
+
+/**
+ * Batch 5a demo: one project board (PRJ-…-001) for the Alas Harum amenities
+ * deal and a Marketing team board. Idempotent: skipped when the project exists.
+ */
+async function ensureBatch5Demo(db: Db) {
+  // Bigger projects need the owner's (executive) approval; smaller ones go active at once.
+  const FLOW = "Projects from Rp 50,000,000: executive";
+  const [flow] = await db.select({ id: schema.approvalFlows.id }).from(schema.approvalFlows).where(eq(schema.approvalFlows.name, FLOW));
+  if (!flow) {
+    const [f] = await db.insert(schema.approvalFlows).values({ entityType: "project", name: FLOW, minAmount: 50_000_000, priority: 50 }).returning({ id: schema.approvalFlows.id });
+    await db.insert(schema.approvalFlowSteps).values({ flowId: f.id, position: 1, approverType: "role", roles: ["executive"], label: "Executive" });
+  }
+  const NAME = "Alas Harum — Amenities Rollout Q1";
+  const [exists] = await db.select({ id: schema.boards.id }).from(schema.boards).where(eq(schema.boards.name, NAME));
+  if (exists) return;
+  const users = await db.select({ id: schema.users.id, email: schema.users.email }).from(schema.users);
+  const uid = (e: string) => users.find((u) => u.email === e)?.id;
+  if (!uid("pm@example.test") || !uid("sales@example.test")) return;
+  const [acc] = await db.select({ id: schema.customers.id }).from(schema.customers).where(eq(schema.customers.name, "Alas Harum Resort Ubud"));
+  const [deal] = acc ? await db.select({ id: schema.opportunities.id }).from(schema.opportunities).where(and(eq(schema.opportunities.customerId, acc.id), sql`${schema.opportunities.title} ilike 'Amenities Q1%'`)) : [];
+  const year = D("2026-11-01").slice(0, 4);
+  const rows = (await db.execute<{ last_seq: number }>(sql`
+    insert into document_counters (doc_type, period, last_seq) values ('project', ${year}, 1)
+    on conflict (doc_type, period) do update set last_seq = document_counters.last_seq + 1 returning last_seq`)) as unknown as { last_seq: number }[];
+  const code = `PRJ-${year}-${String(Number(rows[0].last_seq)).padStart(3, "0")}`;
+
+  const CH = { key: "c_channel", title: "Channel", type: "dropdown", width: 160, settings: { labels: [ { key: "room", label: "In-room", color: "blue" }, { key: "spa", label: "Spa", color: "purple" }, { key: "lobby", label: "Lobby", color: "teal" }, { key: "retail", label: "Retail shelf", color: "brown" } ] } };
+  const K = "sales@example.test"; // Komang Sari
+  const A = "manager@example.test"; // Ayu Pratiwi
+  const P = "pm@example.test"; // Rizky Pratama
+  const S = "designer@example.test"; // Sri Wahyuni
+  const items: DemoItem[] = [
+    { g: 0, name: "Kick-off with the Alas Harum GM", status: "done", people: [P, K], start: "2026-10-20", due: "2026-10-20", est: 2, prio: "high", v: { c_budget: 0, c_approved: true, c_notes: "GM wants delivery split Jan / Feb; housekeeping lead joins weekly." } },
+    { g: 0, name: "Confirm room count & amenity mix", status: "done", people: [K], start: "2026-10-21", due: "2026-10-24", est: 4, prio: "high", v: { c_channel: ["room"], c_approved: true } },
+    { g: 0, name: "Scent selection: lemongrass vs. frangipani", status: "working", people: [K, S], start: "2026-10-27", due: "2026-11-05", est: 6, prio: "medium", v: { c_channel: ["room", "spa"], c_budget: 2_500_000, c_brief: { url: "https://example.com/briefs/alas-harum-scent", text: "Scent brief" } },
+      subs: [ { name: "Send 5-room trial kits", status: "done", people: [K], due: "2026-10-29", est: 1 }, { name: "Collect housekeeping feedback", status: "working", people: [K], due: "2026-11-04", est: 2 } ] },
+    { g: 0, name: "Label & packaging design", status: "working", people: [S], start: "2026-11-02", due: "2026-11-12", est: 16, prio: "high", v: { c_channel: ["room"], c_budget: 6_000_000, c_brief: { url: "https://example.com/briefs/alas-harum-label", text: "Label brief" }, c_notes: "Use the resort's leaf mark; bilingual EN/ID." },
+      subs: [ { name: "First draft — 3 options", status: "working", people: [S], due: "2026-11-06", est: 8 }, { name: "Print proof", status: "todo", people: [S], due: "2026-11-11", est: 2 } ] },
+    { g: 0, name: "Quotation sign-off & 50% deposit", status: "stuck", people: [K, A], start: "2026-11-03", due: "2026-11-08", est: 2, prio: "critical", v: { c_approved: false, c_notes: "Waiting for the GM's signature — follow up Monday." } },
+    { g: 1, name: "Order bottles & caps (2,400 pcs)", status: "todo", people: [P], start: "2026-11-10", due: "2026-11-17", est: 3, prio: "high", v: { c_budget: 14_400_000, c_channel: ["room"] } },
+    { g: 1, name: "Fill & label batch 1 (January)", status: "todo", people: [P], start: "2026-11-18", due: "2026-12-05", est: 40, prio: "high", v: { c_budget: 9_800_000, c_channel: ["room"] },
+      subs: [ { name: "QC sample per 100 bottles", status: "todo", people: [P], due: "2026-12-04", est: 4 } ] },
+    { g: 1, name: "Spa massage oil — 20 L refill", status: "todo", people: [K], start: "2026-11-20", due: "2026-11-28", est: 6, prio: "medium", v: { c_budget: 4_200_000, c_channel: ["spa"] } },
+    { g: 1, name: "Lobby reed diffusers (12 sets)", status: "todo", people: [S, K], start: "2026-11-24", due: "2026-12-02", est: 5, prio: "low", v: { c_budget: 3_600_000, c_channel: ["lobby"] } },
+    { g: 1, name: "Retail shelf POS cards", status: "todo", people: [S], start: "2026-11-25", due: "2026-12-03", est: 4, prio: "low", v: { c_channel: ["retail"], c_budget: 750_000 } },
+    { g: 2, name: "Batch 1 ready to ship", status: "todo", people: [P], start: "2026-12-08", due: "2026-12-08", prio: "critical", ms: true },
+    { g: 2, name: "Deliver batch 1 to Ubud", status: "todo", people: [K], start: "2026-12-09", due: "2026-12-10", est: 6, prio: "high", v: { c_budget: 1_200_000 },
+      subs: [ { name: "Book the delivery van", status: "todo", people: [K], due: "2026-12-04", est: 1 } ] },
+    { g: 2, name: "Housekeeping training (refill routine)", status: "todo", people: [K, S], start: "2026-12-11", due: "2026-12-11", est: 3, prio: "medium", v: { c_notes: "Bring the laminated refill guide." } },
+    { g: 2, name: "Final payment & invoice", status: "todo", people: [A], start: "2026-12-14", due: "2026-12-21", est: 1, prio: "high" },
+    { g: 2, name: "Batch 2 (February) planning call", status: "todo", people: [P, K], start: "2027-01-12", due: "2027-01-12", est: 1, prio: "medium" },
+  ];
+  await seedBoard(
+    db,
+    { kind: "project", name: NAME, description: "Refillable amenities for 120 rooms, spa and lobby at Alas Harum Resort Ubud. Delivery in two batches (January / February).", dept: "SALES", owner: P, code, status: "active", customerId: acc?.id, opportunityId: deal?.id, budget: 45_000_000, actualCost: 8_500_000, startOn: D("2026-10-20"), dueOn: D("2027-01-15"), priority: "high" },
+    [ { name: "Planning", color: "c1" }, { name: "Production", color: "c3" }, { name: "Delivery", color: "green" } ],
+    [
+      { key: "c_budget", title: "Budget", type: "number", width: 140, settings: { prefix: "Rp", unit: "" } },
+      CH,
+      { key: "c_approved", title: "Approved", type: "checkbox", width: 100 },
+      { key: "c_brief", title: "Brief", type: "link", width: 150 },
+      { key: "c_notes", title: "Notes", type: "long_text", width: 220 },
+    ],
+    [ [P, "owner", false], [K, "editor", false], [A, "editor", false], [S, "editor", true] ],
+    items,
+    [ [0, 1, "FS", 0], [1, 2, "FS", 0], [2, 3, "SS", 2], [3, 5, "FS", 0], [4, 5, "FS", 1], [5, 6, "FS", 0], [6, 10, "FS", 0], [10, 11, "FS", 0], [11, 12, "FS", 0], [11, 13, "FS", 2] ],
+    uid,
+  );
+
+  const M = "marketing@example.test";
+  await seedBoard(
+    db,
+    { kind: "team", name: "Content Requests", description: "Requests from Sales for decks, labels and social posts. Designers pick them up from here.", dept: "MARKETING", owner: M },
+    [ { name: "New requests", color: "c2" }, { name: "In design", color: "c3" }, { name: "Delivered", color: "green" } ],
+    [ { key: "c_due_channel", title: "Channel", type: "dropdown", width: 150, settings: { labels: [ { key: "ig", label: "Instagram", color: "pink" }, { key: "print", label: "Print", color: "brown" }, { key: "deck", label: "Sales deck", color: "navy" } ] } } ],
+    [ [M, "owner", false], [S, "editor", true], [K, "viewer", false] ],
+    [
+      { g: 0, name: "Hampers catalogue 2027 (corporate)", status: "todo", people: [], due: "2026-11-14", est: 10, prio: "high", v: { c_due_channel: ["deck", "print"] } },
+      { g: 0, name: "Sanur Weekend Market booth banner", status: "todo", people: [], due: "2026-11-09", est: 4, prio: "medium", v: { c_due_channel: ["print"] } },
+      { g: 1, name: "Lemongrass line — Instagram carousel", status: "working", people: [S], start: "2026-11-01", due: "2026-11-06", est: 6, prio: "medium", v: { c_due_channel: ["ig"] } },
+      { g: 1, name: "Spa partner one-pager", status: "stuck", people: [S], start: "2026-10-30", due: "2026-11-04", est: 3, prio: "high", v: { c_due_channel: ["deck"] } },
+      { g: 2, name: "October newsletter header", status: "done", people: [S], due: "2026-10-25", est: 2, prio: "low", v: { c_due_channel: ["ig"] } },
+      { g: 2, name: "Wholesale price list layout", status: "done", people: [S, M], due: "2026-10-28", est: 4, prio: "medium", v: { c_due_channel: ["print", "deck"] } },
+    ],
+    [],
+    uid,
+  );
 }
 
 /** Personas added after the first demo seed (safe to run on every deploy). */

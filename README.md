@@ -154,11 +154,40 @@ Kenapa tabel `activities` terpisah dari `tasks`: task = pekerjaan yang **akan** 
 
 Nomor dokumen dibuat atomik di `document_counters` (`INSERT … ON CONFLICT DO UPDATE … RETURNING`), jadi dua user yang menyimpan bersamaan tidak mendapat nomor yang sama. Semua create/update/delete/approve/payment tercatat di **Setting → Audit Trail**.
 
+### Projects — Board & Table view (Batch 5a)
+
+Menu baru **Projects → Boards & Projects** (`/projects`): board per *workspace* (= departemen), filter Projects / Team boards / Archived, cari nama atau kode PRJ. Satu board = **project** (kode `PRJ-YYYY-NNN` dari `document_counters`, status, prioritas, akun, deal, budget, biaya aktual, tanggal) atau **team board**. Pekerjaan project disimpan di tabel baru `board_items` (bukan `tasks`); keduanya digabung nanti di *My Work* (5e).
+
+- **Tabel** (`/projects/[boardId]`, `src/components/board-table/`): grup berwarna (rename, collapse, warna, urutan, hapus + pindahkan item), header kolom per grup, ringkasan per grup (status battery, jumlah angka, rentang timeline, jumlah orang, total estimasi), edit per sel dengan update optimistis, subitem (1 level), drag baris antar posisi/grup (@dnd-kit, juga keyboard), pilih banyak → pindah grup / status / orang / duplikat / arsip / hapus (hapus hanya owner), panel item (semua field, subitem, activity), mobile = kartu per grup.
+- **Kolom**: system (`name`, `status`, `people`, `timeline`, `priority`, `estimate_hours`, `dependency`, `link_account`, `link_deal` — tidak bisa dihapus, boleh rename/hide) + custom (text, long text, number dengan prefix/unit mis. Rp, status, dropdown multi, date, checkbox, people, link, files ≤ 3,5 MB di `boards/<boardId>/…`). Label status punya warna + **kategori** (not started / working / stuck / done); laporan, progress dan otomasi memakai kategori. Status wajib punya minimal satu label *done*.
+- **Toolbar**: cari, filter orang/status/grup/tanggal, sort, group-by (status/prioritas/orang = grup virtual, maks 500 item, tanpa drag), kolom (owner: show/hide + urutan untuk semua; user lain: sembunyikan untuk diri sendiri lewat URL). Semua tersimpan di URL.
+- **Skala**: 50 item per grup + *Show more*; ringkasan dihitung di database atas semua item yang cocok. Posisi pecahan (`double`) + renumber otomatis.
+- **Konflik**: last-write-wins; bila orang lain mengubah item setelah halaman dimuat, perubahan tetap tersimpan dan muncul toast "X also changed …".
+- **Dependency** FS/SS/FF/SF + lag hari; loop ditolak (CTE rekursif). Mode strict/flexible disimpan di board (dipakai Timeline di 5b).
+- **Approval project**: *Submit for approval* memakai Approval Engine (tipe `project`, nominal = budget). Tidak ada workflow yang cocok → langsung Active. Seed: project ≥ Rp 50 jt → Executive.
+
+**Akses** (`src/lib/boards/access.ts`, dipakai di setiap action & query):
+
+| Siapa | Hak |
+| --- | --- |
+| Super Admin | semua |
+| Executive | lihat semua board (termasuk private) |
+| Department Head | kelola semua board departemennya (+ sub-departemen) |
+| Owner board / PM pembuat | kelola board-nya (kolom, grup, member, detail, arsip) |
+| Editor | edit item; opsi *edit own only* = hanya item yang di-assign ke dia |
+| Viewer / staf lain | ikut visibility: department = anggota departemen lihat, shared = semua lihat, private = hanya member |
+
+Yang boleh membuat board/project: Super Admin, Department Head, Project Manager, Executive. Edit sel hanya masuk **activity item** (`board_item_activity`); buat/hapus/arsip/bulk/kolom/grup/member/detail/submit masuk **Audit Trail**.
+
+Migrasi Batch 5a: `drizzle/0009_boards.sql` (9 tabel board + enum). Tidak ada library baru (`@dnd-kit/sortable` sudah ada sejak Batch 4).
+
 ## Data demo
 
 `src/db/seed.ts` mengisi data dummy dari demo (`src/db/demo/demo-data.json`): 8 user persona, 12 akun, 14 produk, lead, deal, quotation, order + riwayat 12 bulan, visit, task, target, campaign, event, konten. Tanggal digeser supaya "hari ini" di demo = hari seed dijalankan.
 
 Data Batch 1 (`ensureBatch1Demo`, aman dijalankan berulang — juga mengisi database staging yang sudah di-seed sebelumnya): satuan produk, catatan kontak, 13 log aktivitas, target 4 metrik (bulan ini & lalu), riwayat pembayaran deposit/pelunasan, status pengiriman, data perusahaan dummy untuk PDF, counter nomor dokumen yang melanjutkan nomor demo, 1 quotation draft dengan diskon 15% yang menunggu approval manager, tautan campaign di beberapa akun.
+
+Data Batch 5a (`ensureBatch5Demo`): project **Alas Harum — Amenities Rollout Q1** (PM Rizky; grup Planning/Production/Delivery; 15 item + 6 subitem, dependency, 1 milestone; kolom Budget (Rp), Channel, Approved, Brief, Notes; member Komang & Ayu editor, Sri designer *edit own only*) dan team board **Content Requests** di Marketing, plus workflow approval project ≥ Rp 50 jt.
 
 Login demo (password = `SEED_ADMIN_PASSWORD` saat seed pertama): `admin@`, `manager@`, `sales@`, `dewi@`, `putu@`, `marketing@`, `finance@`, `designer@`, `owner@`, `staff@`, `pm@example.test`.
 
@@ -236,7 +265,7 @@ Semua job butuh header `Authorization: Bearer $CRON_SECRET`. Vercel Cron mengiri
 
 ## Belum dikerjakan (berikutnya)
 
-- Project Management (Gantt/kalender) — approval engine sudah siap untuk tipe project, project_budget, purchase_request
+- Projects 5b–5e: view Kanban, Timeline/Gantt, Calendar, Workload, Dashboard, My Work, automasi; approval project_budget & purchase_request
 - PDF untuk sales order / invoice (saat ini hanya quotation)
 - Scoring kualifikasi (rule-based dari `qualification_criteria` + Gemini/Vertex AI untuk catatan kunjungan)
 - Rate limit login, reset password, login Google Workspace

@@ -15,6 +15,7 @@ export type IconName =
   | "box"
   | "out"
   | "rep"
+  | "proj"
   | "set";
 
 export type NavItem = {
@@ -74,6 +75,14 @@ export const NAV: NavCategory[] = [
       { key: "mkt-campaigns", href: "/marketing/campaigns", label: "Campaigns", description: "Product launches, B2B outreach and brand campaigns with their results." },
       { key: "mkt-attribution", href: "/marketing/attribution", label: "Lead Sources & Attribution", description: "Where leads come from and how many get qualified. Source is required when a lead is created." },
       { key: "mkt-content", href: "/marketing/content", label: "Content Calendar", description: "Content writers plan each post with a brief and guideline; designers upload the result for review; approved content is scheduled to publish." },
+    ],
+  },
+  {
+    key: "projects",
+    label: "Projects",
+    icon: "proj",
+    items: [
+      { key: "boards", href: "/projects", label: "Boards & Projects", description: "Project boards and team boards per department: items, owners, timelines and status in one table." },
     ],
   },
   {

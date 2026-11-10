@@ -82,6 +82,20 @@ export const TASK_STATUS: Record<string, Def> = {
   cancelled: d("Cancelled", "bad"),
 };
 
+export const PROJECT_STATUS: Record<string, Def> = {
+  draft: d("Draft", "neutral"),
+  pending_approval: d("Waiting approval", "warn"),
+  active: d("Active", "accent"),
+  on_hold: d("On hold", "warn"),
+  completed: d("Completed", "ok"),
+  cancelled: d("Cancelled", "bad"),
+};
+export const BOARD_VISIBILITY: Record<string, Def> = {
+  department: d("Department", "neutral"),
+  private: d("Private", "warn"),
+  shared: d("Everyone", "info"),
+};
+
 export const CAMPAIGN_STATUS: Record<string, Def> = {
   scheduled: d("Scheduled", "info"),
   running: d("Running", "ok"),
