@@ -33,6 +33,7 @@ export async function login(_prev: LoginState, formData: FormData): Promise<Logi
       id: schema.users.id,
       passwordHash: schema.users.passwordHash,
       active: schema.users.active,
+      sessionVersion: schema.users.sessionVersion,
     })
     .from(schema.users)
     .where(sql`lower(${schema.users.email}) = ${email.toLowerCase()}`)
@@ -45,6 +46,7 @@ export async function login(_prev: LoginState, formData: FormData): Promise<Logi
 
   const session = await getSession();
   session.userId = user.id;
+  session.v = user.sessionVersion;
   await session.save();
 
   await getDb()

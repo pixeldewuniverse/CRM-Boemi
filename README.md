@@ -119,6 +119,14 @@ Aturan: akun & lead hasil import mendapat source **Import** (`source_detail` = n
 
 Kode: `src/lib/csv.ts` (parser RFC 4180), `src/lib/import/fields.ts` (kolom, alias, contoh), `src/lib/import/run.ts` (validasi & commit), `src/app/actions/import.ts`, `src/app/api/import/template/[entity]`, `src/components/forms/import-wizard.tsx`. Tidak ada tabel baru.
 
+### Dashboard & Workspace (Batch 3)
+
+- **Global search** — kotak *Search…* di header atau **Ctrl/Cmd+K**. Mencari akun, kontak, lead, deal, quotation, order, produk (SKU/nama), task, campaign, event, dan halaman menu; maks 5 hasil per tipe (+ link "All N"). Bisa pakai nomor HP. Hasil mengikuti scope role yang sama dengan halaman daftarnya (sales hanya datanya sendiri; tipe yang menunya tidak boleh dibuka role itu tidak ditampilkan). Query: `ILIKE` + index trigram `pg_trgm` (migrasi `0007`, dibuat hanya bila ekstensi tersedia — Neon & Cloud SQL mendukung; tanpa ekstensi tetap jalan). Kode: `src/lib/queries/search.ts`, `src/app/actions/search.ts`, `src/components/shell/command-palette.tsx`.
+- **Calendar** (`/calendar`, menu Dashboard) — tampilan Month / Week / Agenda (Agenda otomatis di HP). Sumber: task (due), visit *planned*, event, campaign (hari mulai ▶ & selesai ■), quotation *sent* (valid until), jadwal konten. Filter **Me / My team** (Sales Manager: dirinya + bawahan) **/ Everyone** (Admin & Executive) dan per tipe; sales selalu *Me* (dipaksa di server). Klik item → detail; tombol **+** di tiap hari membuat task dengan tanggal terisi. Sinkron Google Calendar: interface saja di `src/lib/calendar/sync.ts` (belum aktif).
+- **My profile** (`/profile`, dari menu avatar) — ubah nama & telepon, foto profil (dipotong persegi & dikecilkan di browser, disimpan di storage `avatars/…`, dilihat lewat `/api/files`), ganti password (cek password lama, bcrypt, min. 10 karakter; **perangkat lain otomatis logout** lewat `users.session_version`), detail kerja read-only, dan pengaturan notifikasi per jenis (in-app / email / HP-laptop) + link ke perangkat push.
+
+Migrasi Batch 3: `0006_profile_avatar_session.sql` (`users.avatar_key`, `users.session_version`), `0007_search_trgm.sql` (pg_trgm + index trigram, bersyarat).
+
 Kenapa tabel `activities` terpisah dari `tasks`: task = pekerjaan yang **akan** dilakukan (assignee, deadline, pengingat, board Kanban, KPI "overdue"); activity = catatan yang **sudah** terjadi. Memakai `tasks` untuk log akan mengotori board & pengingat dan butuh banyak kolom kosong. Aktivitas tetap ikut dihitung di KPI *activities* rep.
 
 Nomor dokumen dibuat atomik di `document_counters` (`INSERT … ON CONFLICT DO UPDATE … RETURNING`), jadi dua user yang menyimpan bersamaan tidak mendapat nomor yang sama. Semua create/update/delete/approve/payment tercatat di **Setting → Audit Trail**.

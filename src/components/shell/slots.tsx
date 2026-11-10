@@ -3,7 +3,9 @@ import { cache } from "react";
 import { and, count, eq, inArray, isNull, lt } from "drizzle-orm";
 import { connection } from "next/server";
 import { logout } from "@/app/actions/auth";
+import { Avatar } from "@/components/avatar";
 import { Icon } from "@/components/icon";
+import { UserMenu } from "./user-menu";
 import { getDb, schema } from "@/db";
 import { getCurrentUser } from "@/lib/auth";
 import { NAV } from "@/lib/nav";
@@ -61,14 +63,6 @@ export async function CategoryCount({ categoryKey }: { categoryKey: string }) {
   return <Pill n={total} />;
 }
 
-const initials = (name: string) =>
-  name
-    .split(" ")
-    .map((w) => w[0])
-    .slice(0, 2)
-    .join("")
-    .toUpperCase();
-
 export async function TopRight() {
   const [user, counts] = await Promise.all([getCurrentUser(), getCounts()]);
   return (
@@ -85,10 +79,7 @@ export async function TopRight() {
           </span>
         )}
       </Link>
-      <span className="grid size-[30px] flex-none place-items-center rounded-full bg-accent-soft text-xs font-bold text-accent">
-        {initials(user.name)}
-      </span>
-      <span className="hidden text-[13px] sm:inline">{user.name}</span>
+      <UserMenu avatar={<Avatar name={user.name} avatarKey={user.avatarKey} />} name={user.name} role={ROLE_LABEL[user.role]} />
     </div>
   );
 }

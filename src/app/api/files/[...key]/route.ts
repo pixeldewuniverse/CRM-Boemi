@@ -6,7 +6,7 @@ import { getStorage } from "@/lib/storage";
 
 /**
  * Streams a private file to a signed-in user who may see the record it
- * belongs to (sales reps: only their own visits).
+ * belongs to (sales reps: only their own visits; profile photos: everyone).
  */
 export async function GET(_request: Request, ctx: RouteContext<"/api/files/[...key]">) {
   const user = await verifyUser();
@@ -16,13 +16,19 @@ export async function GET(_request: Request, ctx: RouteContext<"/api/files/[...k
     return Response.json({ error: "Invalid key" }, { status: 400 });
   }
 
-  const [visit] = await getDb()
-    .select({ salesId: schema.visits.salesId })
-    .from(schema.visits)
-    .where(eq(schema.visits.photoKey, objectKey))
-    .limit(1);
-  if (!visit) return Response.json({ error: "Not found" }, { status: 404 });
-  if (!seesAll(user) && visit.salesId !== user.id) return Response.json({ error: "Not found" }, { status: 404 });
+  // Profile photos: visible to every signed-in user.
+  const [avatar] = objectKey.startsWith("avatars/")
+    ? await getDb().select({ id: schema.users.id }).from(schema.users).where(eq(schema.users.avatarKey, objectKey)).limit(1)
+    : [];
+  if (!avatar) {
+    const [visit] = await getDb()
+      .select({ salesId: schema.visits.salesId })
+      .from(schema.visits)
+      .where(eq(schema.visits.photoKey, objectKey))
+      .limit(1);
+    if (!visit) return Response.json({ error: "Not found" }, { status: 404 });
+    if (!seesAll(user) && visit.salesId !== user.id) return Response.json({ error: "Not found" }, { status: 404 });
+  }
 
   const file = await (await getStorage()).read(objectKey);
   if (!file) return Response.json({ error: "Not found" }, { status: 404 });

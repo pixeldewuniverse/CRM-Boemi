@@ -44,6 +44,7 @@ export const NAV: NavCategory[] = [
     icon: "dash",
     items: [
       { key: "dashboard", href: "/dashboard", label: "Overview", description: "Target vs actual, today's work and what needs attention." },
+      { key: "calendar", href: "/calendar", label: "Calendar", description: "Tasks, planned visits, events, campaigns, quotation deadlines and content in one place." },
       { key: "dash-team", href: "/dashboard/team", label: "Team & Sales KPI", description: "Each rep's performance: monthly target, orders, pipeline and activity discipline." },
     ],
   },

@@ -25,6 +25,7 @@ export function FormDialog({
   size,
   danger = false,
   disabled = false,
+  dialogId,
 }: {
   trigger: ReactNode;
   triggerClassName?: string;
@@ -39,6 +40,8 @@ export function FormDialog({
   /** Red submit button (deletes and other destructive actions). */
   danger?: boolean;
   disabled?: boolean;
+  /** Lets other buttons open this dialog (e.g. "+" on a calendar day). */
+  dialogId?: string;
 }) {
   const width = { md: "w-[min(94vw,30rem)]", wide: "w-[min(94vw,40rem)]", xl: "w-[min(96vw,56rem)]" }[size ?? (wide ? "wide" : "md")];
   const twoCols = wide || size === "wide" || size === "xl";
@@ -60,6 +63,7 @@ export function FormDialog({
       </button>
       <dialog
         ref={dialog}
+        id={dialogId}
         aria-label={title}
         className={`m-auto max-h-[92dvh] ${width} overflow-y-auto rounded-xl border border-line bg-surface p-0 text-fg shadow-panel backdrop:bg-black/40`}
       >
@@ -109,11 +113,30 @@ export function FormDialog({
  * Inline (non-modal) form for a Server Action, e.g. a settings section.
  * Shares the error context, so the same field components show errors.
  */
-export function InlineForm({ action, submitLabel = "Save", children, className = "grid gap-3 sm:grid-cols-2" }: { action: Action; submitLabel?: string; children: ReactNode; className?: string }) {
-  const [state, formAction, pending] = useActionState<FormState, FormData>(action, initialFormState);
+export function InlineForm({
+  action,
+  submitLabel = "Save",
+  children,
+  className = "grid gap-3 sm:grid-cols-2",
+  resetOnSuccess = false,
+}: {
+  action: Action;
+  submitLabel?: string;
+  children: ReactNode;
+  className?: string;
+  /** Clear the fields after a successful save (e.g. passwords). */
+  resetOnSuccess?: boolean;
+}) {
+  const [formKey, setFormKey] = useState(0);
+  const [state, formAction, pending] = useActionState<FormState, FormData>(async (prev, fd) => {
+    const res = await action(prev, fd);
+    if (res.ok && resetOnSuccess) setFormKey((k) => k + 1);
+    return res;
+  }, initialFormState);
   return (
     <FormCtx value={state}>
       <form
+        key={formKey}
         onSubmit={(e) => {
           e.preventDefault();
           const fd = new FormData(e.currentTarget);

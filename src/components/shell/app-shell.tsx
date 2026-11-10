@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { Suspense, useState, type ReactNode } from "react";
 import { Icon } from "@/components/icon";
 import { NAV, findNav } from "@/lib/nav";
+import { CommandPalette } from "./command-palette";
 
 type Slots = {
   /** Count pill per submenu key, e.g. { tasks: <Suspense>…</Suspense> } */
@@ -81,6 +82,7 @@ export function AppShell({ children, ...slots }: Slots & { children: ReactNode }
             </Suspense>
           </div>
           <div className="flex-1" />
+          <CommandPalette />
           <span className="hidden whitespace-nowrap rounded-md border border-line px-[7px] py-px text-[11px] text-muted sm:inline">
             Staging · dummy data
           </span>

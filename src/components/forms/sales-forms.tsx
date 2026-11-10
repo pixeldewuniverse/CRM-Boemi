@@ -58,9 +58,21 @@ export function CheckInButton({ accounts, defaultAccountId }: { accounts: Option
   );
 }
 
-export function NewTaskButton({ accounts, reps, defaultAccountId, triggerClassName }: { accounts: Option[]; reps: Option[]; defaultAccountId?: string; triggerClassName?: string }) {
+export function NewTaskButton({
+  accounts,
+  reps,
+  defaultAccountId,
+  triggerClassName,
+  dialogId,
+}: {
+  accounts: Option[];
+  reps: Option[];
+  defaultAccountId?: string;
+  triggerClassName?: string;
+  dialogId?: string;
+}) {
   return (
-    <FormDialog trigger="+ Task" triggerClassName={triggerClassName} title="New task / follow-up" action={createTask} submitLabel="Add task" wide>
+    <FormDialog trigger="+ Task" triggerClassName={triggerClassName} title="New task / follow-up" action={createTask} submitLabel="Add task" wide dialogId={dialogId}>
       <TextField name="title" label="What needs to be done?" required wide />
       <SelectField name="type" label="Type" options={opts(ACTIVITY_TYPES)} defaultValue="Follow-up" />
       <SelectField name="accountId" label="Account" options={accounts} placeholder="None" defaultValue={defaultAccountId} />

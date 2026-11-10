@@ -142,6 +142,7 @@ async function main() {
       await db.transaction(async (tx) => {
         await ensureBatch1Demo(tx as unknown as Db);
         await ensureBatch2Demo(tx as unknown as Db);
+        await ensureBatch3Demo(tx as unknown as Db);
       });
       return console.log("Demo data already present — skipping seed (batch 1 demo data checked).");
     }
@@ -161,6 +162,7 @@ async function main() {
       await ensureExtraDemoUsers(tx as unknown as Db, passwordHash!);
       await ensureBatch1Demo(tx as unknown as Db);
       await ensureBatch2Demo(tx as unknown as Db);
+      await ensureBatch3Demo(tx as unknown as Db);
     });
     console.log("Seeded demo data: 8 users, 14 products, 12 accounts, leads, deals, quotations, orders (+12-month history), visits, tasks, campaigns, events, content.");
   } finally {
@@ -347,6 +349,61 @@ async function ensureBatch2Demo(db: Db) {
     { actorId: id("manager@example.test"), action: "import", entity: "leads", entityId: "leads-pameran-oktober.csv", changes: { rows: 38, created: 34, updated: 0, skipped: 3, failed: 1, duplicates: "skip" }, createdAt: T("2026-10-21", "10:12") },
     { actorId: id("admin@example.test"), action: "import", entity: "products", entityId: "pricelist-2026-q4.csv", changes: { rows: 14, created: 0, updated: 14, skipped: 0, failed: 0, duplicates: "update" }, createdAt: T("2026-10-02", "09:30") },
   ]);
+}
+
+/** Batch 3: planned visits and timed tasks for the next two weeks (calendar), one user's notification settings. */
+async function ensureBatch3Demo(db: Db) {
+  const [{ n }] = await db.select({ n: sql<number>`count(*)::int` }).from(schema.visits).where(eq(schema.visits.status, "planned"));
+  if (n > 0) return;
+  const users = await db.select({ id: schema.users.id, email: schema.users.email }).from(schema.users);
+  const uid = (e: string) => users.find((u) => u.email === e)?.id;
+  const accounts = await db.select({ id: schema.customers.id, ref: schema.customers.externalRef }).from(schema.customers).where(sql`${schema.customers.externalRef} like 'demo-%'`);
+  const acc = (ref: string) => accounts.find((a) => a.ref === `demo-${ref}`)?.id;
+  const day = (plus: number, hhmm: string) => new Date(`${new Date(jakartaToday() + plus * 86_400_000).toISOString().slice(0, 10)}T${hhmm}:00+07:00`);
+
+  const visits: [string, string, number, string, string][] = [
+    ["sales@example.test", "A01", 1, "10:00", "Product demo"],
+    ["sales@example.test", "A03", 2, "14:00", "Sample delivery"],
+    ["sales@example.test", "A11", 4, "09:30", "Account visit"],
+    ["sales@example.test", "A06", 8, "11:00", "Restock check"],
+    ["dewi@example.test", "A09", 1, "13:30", "Product demo"],
+    ["dewi@example.test", "A08", 3, "10:00", "Account visit"],
+    ["dewi@example.test", "A07", 9, "15:00", "Payment collection"],
+    ["putu@example.test", "A04", 2, "09:00", "Restock check"],
+    ["putu@example.test", "A05", 6, "13:00", "Account visit"],
+    ["putu@example.test", "A04", 12, "10:30", "Product demo"],
+  ];
+  const visitRows = visits
+    .filter(([e, a]) => uid(e) && acc(a))
+    .map(([e, a, plus, hhmm, purpose]) => ({ customerId: acc(a)!, salesId: uid(e)!, status: "planned" as const, scheduledAt: day(plus, hhmm), purpose }));
+  if (visitRows.length) await db.insert(schema.visits).values(visitRows);
+
+  const tasks: [string, string | null, number, string, string, string][] = [
+    ["sales@example.test", "A01", 0, "16:00", "Call", "Confirm demo agenda with the GM"],
+    ["sales@example.test", "A02", 3, "11:00", "Send samples", "Send massage oil samples (3 scents)"],
+    ["dewi@example.test", "A09", 2, "09:00", "Follow-up", "Follow up hamper mock-up decision"],
+    ["dewi@example.test", "A10", 5, "15:30", "Call", "Lebaran volume planning call"],
+    ["putu@example.test", "A05", 4, "10:00", "WhatsApp", "Share new price list"],
+    ["manager@example.test", null, 1, "08:30", "Meeting", "Weekly sales meeting"],
+    ["manager@example.test", null, 8, "08:30", "Meeting", "Weekly sales meeting"],
+    ["marketing@example.test", null, 2, "14:00", "Brief", "Brief designer: December campaign visuals"],
+  ];
+  const taskRows = tasks
+    .filter(([e]) => uid(e))
+    .map(([e, a, plus, hhmm, type, title]) => ({ title, type, customerId: a ? (acc(a) ?? null) : null, assigneeId: uid(e)!, createdBy: uid(e)!, status: "open" as const, dueAt: day(plus, hhmm) }));
+  if (taskRows.length) await db.insert(schema.tasks).values(taskRows);
+
+  // Komang prefers fewer emails: no email for stage changes and new leads.
+  const komang = uid("sales@example.test");
+  if (komang) {
+    await db
+      .insert(schema.notificationPreferences)
+      .values([
+        { userId: komang, type: "opportunity.stage_changed", inApp: true, email: false, push: true },
+        { userId: komang, type: "lead.hot", inApp: true, email: false, push: true },
+      ])
+      .onConflictDoNothing();
+  }
 }
 
 /** Personas added after the first demo seed (safe to run on every deploy). */

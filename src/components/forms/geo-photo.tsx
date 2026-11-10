@@ -1,20 +1,11 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { compressImage } from "@/lib/compress-image";
 import { useFormErrors } from "./form-dialog";
 
 /** Shrink a phone photo in the browser (max 1600px, JPEG ~80%) before upload. */
-async function compress(file: File): Promise<File> {
-  const bitmap = await createImageBitmap(file);
-  const scale = Math.min(1, 1600 / Math.max(bitmap.width, bitmap.height));
-  const canvas = document.createElement("canvas");
-  canvas.width = Math.round(bitmap.width * scale);
-  canvas.height = Math.round(bitmap.height * scale);
-  canvas.getContext("2d")!.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
-  bitmap.close();
-  const blob = await new Promise<Blob>((res, rej) => canvas.toBlob((b) => (b ? res(b) : rej(new Error("encode"))), "image/jpeg", 0.8));
-  return new File([blob], "visit.jpg", { type: "image/jpeg" });
-}
+const compress = (file: File) => compressImage(file, 1600, { name: "visit.jpg" });
 
 /** GPS check-in + camera photo, written into the surrounding <form>. */
 export function GeoPhotoFields() {

@@ -14,10 +14,11 @@ export type CurrentUser = {
   name: string;
   email: string;
   role: Role;
+  avatarKey: string | null;
 };
 
 async function loadUser(): Promise<CurrentUser> {
-  const { userId } = await getSession();
+  const { userId, v } = await getSession();
   if (!userId) redirect("/login");
 
   const [user] = await getDb()
@@ -26,13 +27,16 @@ async function loadUser(): Promise<CurrentUser> {
       name: schema.users.name,
       email: schema.users.email,
       role: schema.users.role,
+      sessionVersion: schema.users.sessionVersion,
+      avatarKey: schema.users.avatarKey,
     })
     .from(schema.users)
     .where(and(eq(schema.users.id, userId), eq(schema.users.active, true)))
     .limit(1);
 
-  if (!user) redirect("/login");
-  return user;
+  // Signed out everywhere after a password change.
+  if (!user || user.sessionVersion !== (v ?? 0)) redirect("/login");
+  return { id: user.id, name: user.name, email: user.email, role: user.role, avatarKey: user.avatarKey };
 }
 
 /**

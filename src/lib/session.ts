@@ -5,6 +5,8 @@ import { SESSION_COOKIE } from "./session-cookie";
 
 export type SessionData = {
   userId?: string;
+  /** users.session_version at sign-in; a password change makes older sessions invalid. */
+  v?: number;
 };
 
 export { SESSION_COOKIE };

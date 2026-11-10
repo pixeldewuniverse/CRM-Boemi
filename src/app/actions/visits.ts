@@ -12,6 +12,7 @@ import { rp } from "@/lib/format";
 import { VISIT_PURPOSES } from "@/lib/labels";
 import { notify } from "@/lib/notifications";
 import { canApproveFees, canSell } from "@/lib/permissions";
+import { sniffImage } from "@/lib/sniff-image";
 import { buildKey, getStorage } from "@/lib/storage";
 
 const MAX_PHOTO = 3.5 * 1024 * 1024;
@@ -27,13 +28,6 @@ const CheckIn = z.object({
 });
 
 /** Image type from the file's first bytes (not the browser-supplied name/type). */
-function sniffImage(buf: Buffer): "jpg" | "png" | "webp" | null {
-  if (buf[0] === 0xff && buf[1] === 0xd8 && buf[2] === 0xff) return "jpg";
-  if (buf.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))) return "png";
-  if (buf.subarray(0, 4).toString() === "RIFF" && buf.subarray(8, 12).toString() === "WEBP") return "webp";
-  return null;
-}
-
 /** Check-in with GPS + photo, optionally claiming a visit fee for approval. */
 export async function checkInVisit(_prev: FormState, fd: FormData): Promise<FormState> {
   const user = await verifyUser();

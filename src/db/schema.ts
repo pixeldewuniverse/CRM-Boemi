@@ -162,6 +162,9 @@ export const users = pgTable(
     joinedOn: date("joined_on"),
     active: boolean("active").notNull().default(true),
     lastLoginAt: timestamp("last_login_at", { withTimezone: true }),
+    avatarKey: text("avatar_key"), // profile photo, object key in storage
+    // Bumped on password change: sessions signed with an older version are signed out.
+    sessionVersion: integer("session_version").notNull().default(0),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },

@@ -1,7 +1,13 @@
 import type { IconName } from "@/lib/nav";
 
 /** Line icons from the Phase 1 demo. */
-const PATHS: Record<IconName | "chevron" | "bell" | "menu" | "close", React.ReactNode> = {
+const PATHS: Record<IconName | "chevron" | "bell" | "menu" | "close" | "search", React.ReactNode> = {
+  search: (
+    <>
+      <circle cx="11" cy="11" r="7" />
+      <path d="M20 20l-4-4" />
+    </>
+  ),
   dash: <path d="M3 13h8V3H3zM13 21h8V11h-8zM3 21h8v-6H3zM13 3v6h8V3z" />,
   pipe: (
     <>
