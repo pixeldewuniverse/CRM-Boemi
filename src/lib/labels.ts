@@ -131,7 +131,7 @@ export const CUSTOMER_STATUS: Record<string, Def> = {
 
 /** Segments double as sales channels in reports. */
 export const SEGMENTS = ["Hotel & Spa", "Retail Partner", "Corporate Gift", "Online & Event"] as const;
-export const LEAD_SOURCES = ["Website", "Instagram", "WhatsApp", "Referral", "Event / Exhibition", "Walk-in Store", "Aroma journey"] as const;
+export const LEAD_SOURCES = ["Website", "Instagram", "WhatsApp", "Referral", "Event / Exhibition", "Walk-in Store", "Aroma journey", "Import"] as const;
 export const LOST_REASONS = ["Price too high", "Chose a competitor", "No budget yet", "Unresponsive", "Other"] as const;
 export const ACTIVITY_TYPES = ["Follow-up", "Call", "WhatsApp", "Email", "Visit", "Meeting", "Send samples", "Brief", "Design"] as const;
 export const DISQUALIFY_REASONS = ["No budget", "Not a fit", "Unresponsive", "Duplicate", "Other"] as const;

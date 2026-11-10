@@ -23,3 +23,6 @@ export const canRecordPayments = (u: CurrentUser) => isManager(u) || u.role === 
 export const canApproveDiscounts = (u: CurrentUser) => isManager(u);
 /** Discount % this user may give without approval (managers: no limit). */
 export const discountLimitFor = (u: CurrentUser, salesLimit: number) => (isManager(u) ? 100 : salesLimit);
+/** CSV import (Database → Import / Export). Employees: admins only, so nobody can create an admin account by import. */
+export const canImport = (u: CurrentUser) => isManager(u);
+export const canImportEntity = (u: CurrentUser, entity: string) => (entity === "employees" ? u.role === "admin" : isManager(u));

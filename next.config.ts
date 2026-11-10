@@ -7,8 +7,9 @@ const nextConfig: NextConfig = {
   partialPrefetching: true,
   poweredByHeader: false,
   experimental: {
-    // Visit photos are compressed in the browser (~0.5 MB); leave headroom.
-    serverActions: { bodySizeLimit: "4mb" },
+    // Visit photos are compressed in the browser (~0.5 MB). CSV imports send
+    // up to 5 MB of text (escaped as JSON), so leave headroom.
+    serverActions: { bodySizeLimit: "8mb" },
   },
   turbopack: {
     rules: {

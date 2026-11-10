@@ -139,7 +139,10 @@ async function main() {
     let passwordHash = existing?.hash ?? null;
     if (marker) {
       if (passwordHash) await ensureExtraDemoUsers(db, passwordHash);
-      await db.transaction((tx) => ensureBatch1Demo(tx as unknown as Db));
+      await db.transaction(async (tx) => {
+        await ensureBatch1Demo(tx as unknown as Db);
+        await ensureBatch2Demo(tx as unknown as Db);
+      });
       return console.log("Demo data already present — skipping seed (batch 1 demo data checked).");
     }
     if (!passwordHash) {
@@ -157,6 +160,7 @@ async function main() {
       await seedDemo(tx as unknown as Db, passwordHash!);
       await ensureExtraDemoUsers(tx as unknown as Db, passwordHash!);
       await ensureBatch1Demo(tx as unknown as Db);
+      await ensureBatch2Demo(tx as unknown as Db);
     });
     console.log("Seeded demo data: 8 users, 14 products, 12 accounts, leads, deals, quotations, orders (+12-month history), visits, tasks, campaigns, events, content.");
   } finally {
@@ -331,6 +335,18 @@ async function ensureBatch1Demo(db: Db) {
     await db.insert(schema.quotationItems).values(lines.map((l) => ({ ...l, quotationId: q.id })));
     await db.insert(schema.auditLogs).values({ actorId: dewi, action: "create", entity: "quotation", entityId: quoteNo, changes: { discountPct: 15 } });
   }
+}
+
+/** Batch 2: two past imports so "Recent imports" isn't empty (audit rows only; idempotent). */
+async function ensureBatch2Demo(db: Db) {
+  const [{ n }] = await db.select({ n: sql<number>`count(*)::int` }).from(schema.auditLogs).where(eq(schema.auditLogs.action, "import"));
+  if (n > 0) return;
+  const people = await db.select({ id: schema.users.id, email: schema.users.email }).from(schema.users).where(inArray(schema.users.email, ["manager@example.test", "admin@example.test"]));
+  const id = (e: string) => people.find((p) => p.email === e)?.id ?? null;
+  await db.insert(schema.auditLogs).values([
+    { actorId: id("manager@example.test"), action: "import", entity: "leads", entityId: "leads-pameran-oktober.csv", changes: { rows: 38, created: 34, updated: 0, skipped: 3, failed: 1, duplicates: "skip" }, createdAt: T("2026-10-21", "10:12") },
+    { actorId: id("admin@example.test"), action: "import", entity: "products", entityId: "pricelist-2026-q4.csv", changes: { rows: 14, created: 0, updated: 14, skipped: 0, failed: 0, duplicates: "update" }, createdAt: T("2026-10-02", "09:30") },
+  ]);
 }
 
 /** Personas added after the first demo seed (safe to run on every deploy). */

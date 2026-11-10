@@ -107,6 +107,18 @@ Struktur menu mengikuti demo Phase 1 (`demo.pixeldew.xyz`), didefinisikan di `sr
 | **Log activity** (Call, WhatsApp, Email, Meeting, Note) di akun & per deal; timeline gabungan visit, aktivitas, task, quotation, order | Detail akun | Sales & manager; hapus: penulis atau manager |
 | Template dokumen: prefix, format nomor (`{PREFIX}-{YY}{MM}-{SEQ}`), digit counter, reset per bulan/tahun, masa berlaku, batas diskon, syarat & ketentuan, data perusahaan & bank di PDF | `/settings/templates` | Admin & Sales Manager |
 
+### Import CSV (Batch 2)
+
+**Database → Import / Export** (`/database/import`): import untuk Accounts (+ kontak utama), Contacts, Leads, Products, Employees, dan Sales targets. Setiap entitas punya tombol **Template** (header + 2 baris contoh dummy).
+
+1. **Upload**: CSV maks 5 MB / 5.000 baris, pemisah `,` / `;` / tab terdeteksi otomatis, UTF-8 (BOM dibuang; file Windows-1252 dari Excel lama tetap terbaca dengan peringatan). File `.xlsx` ditolak dengan petunjuk *Save As → CSV UTF-8*.
+2. **Check & map**: kolom dicocokkan otomatis dari header (termasuk alias Indonesia seperti *No HP*, *Perusahaan*, *Segmen*) dan bisa diubah. Setiap baris divalidasi di server: HP → +62…, email, segmen, tanggal (YYYY-MM-DD atau DD/MM/YYYY), angka Rupiah (`185.000`). Duplikat dicek **di dalam file** dan **di database** — akun/lead lewat aturan `findDuplicate` (HP/email), kontak lewat HP/email, produk lewat SKU, user lewat email, target lewat rep + metrik + periode. Duplikat bisa **Skip** atau **Update** (hanya sel yang terisi yang menimpa data; sel kosong tidak menghapus).
+3. **Import**: disimpan dalam transaksi per 500 baris (batch yang gagal diulang per baris), ringkasan hasil, dan **Download error report** (CSV berisi baris yang gagal/dilewati + alasannya).
+
+Aturan: akun & lead hasil import mendapat source **Import** (`source_detail` = nama file), owner dari kolom *Owner email* atau owner default yang dipilih (default: importer). Kontak dirujuk ke akun lewat nama akun persis. User hasil import dibuat **non-aktif tanpa password** sampai di-invite. Izin: Admin & Sales Manager; **Employees hanya Admin**. Setiap import = 1 entri audit (entitas, nama file, jumlah baris & hasil). File tidak disimpan: browser mengirim isinya untuk preview, lalu sekali lagi saat import, dan server memvalidasi ulang (batas body Server Action dinaikkan ke 8 MB di `next.config.ts`).
+
+Kode: `src/lib/csv.ts` (parser RFC 4180), `src/lib/import/fields.ts` (kolom, alias, contoh), `src/lib/import/run.ts` (validasi & commit), `src/app/actions/import.ts`, `src/app/api/import/template/[entity]`, `src/components/forms/import-wizard.tsx`. Tidak ada tabel baru.
+
 Kenapa tabel `activities` terpisah dari `tasks`: task = pekerjaan yang **akan** dilakukan (assignee, deadline, pengingat, board Kanban, KPI "overdue"); activity = catatan yang **sudah** terjadi. Memakai `tasks` untuk log akan mengotori board & pengingat dan butuh banyak kolom kosong. Aktivitas tetap ikut dihitung di KPI *activities* rep.
 
 Nomor dokumen dibuat atomik di `document_counters` (`INSERT … ON CONFLICT DO UPDATE … RETURNING`), jadi dua user yang menyimpan bersamaan tidak mendapat nomor yang sama. Semua create/update/delete/approve/payment tercatat di **Setting → Audit Trail**.
@@ -195,6 +207,5 @@ Semua job butuh header `Authorization: Bearer $CRON_SECRET`. Vercel Cron mengiri
 
 - Batch 2–4: User & RBAC, Project Management (Gantt/kalender), Workspace & Reporting, approval engine (memindahkan approval diskon quotation)
 - PDF untuk sales order / invoice (saat ini hanya quotation)
-- Bulk import/export CSV
 - Scoring kualifikasi (rule-based dari `qualification_criteria` + Gemini/Vertex AI untuk catatan kunjungan)
 - Rate limit login, reset password, login Google Workspace
