@@ -160,6 +160,7 @@ Menu baru **Projects → Boards & Projects** (`/projects`): board per *workspace
 
 - **Tabel** (`/projects/[boardId]`, `src/components/board-table/`): grup berwarna (rename, collapse, warna, urutan, hapus + pindahkan item), header kolom per grup, ringkasan per grup (status battery, jumlah angka, rentang timeline, jumlah orang, total estimasi), edit per sel dengan update optimistis, subitem (1 level), drag baris antar posisi/grup (@dnd-kit, juga keyboard), pilih banyak → pindah grup / status / orang / duplikat / arsip / hapus (hapus hanya owner), panel item (semua field, subitem, activity), mobile = kartu per grup.
 - **Kolom**: system (`name`, `status`, `people`, `timeline`, `priority`, `estimate_hours`, `dependency`, `link_account`, `link_deal` — tidak bisa dihapus, boleh rename/hide) + custom (text, long text, number dengan prefix/unit mis. Rp, status, dropdown multi, date, checkbox, people, link, files ≤ 3,5 MB di `boards/<boardId>/…`). Label status punya warna + **kategori** (not started / working / stuck / done); laporan, progress dan otomasi memakai kategori. Status wajib punya minimal satu label *done*.
+- **Kanban** (`/projects/[boardId]?view=kanban`, tab di atas tabel): satu lajur per label status (pilih kolom status lain lewat *Lanes* bila board punya lebih dari satu), kartu berisi grup, prioritas, subitem, orang dan due date. Drag kartu = ubah status (aturan edit sama dengan tabel, termasuk *edit own only*), klik kartu = panel item. Filter/cari/sort ikut pindah antara Table dan Kanban. Maks 500 item.
 - **Toolbar**: cari, filter orang/status/grup/tanggal, sort, group-by (status/prioritas/orang = grup virtual, maks 500 item, tanpa drag), kolom (owner: show/hide + urutan untuk semua; user lain: sembunyikan untuk diri sendiri lewat URL). Semua tersimpan di URL.
 - **Skala**: 50 item per grup + *Show more*; ringkasan dihitung di database atas semua item yang cocok. Posisi pecahan (`double`) + renumber otomatis.
 - **Konflik**: last-write-wins; bila orang lain mengubah item setelah halaman dimuat, perubahan tetap tersimpan dan muncul toast "X also changed …".
@@ -265,7 +266,7 @@ Semua job butuh header `Authorization: Bearer $CRON_SECRET`. Vercel Cron mengiri
 
 ## Belum dikerjakan (berikutnya)
 
-- Projects 5b–5e: view Kanban, Timeline/Gantt, Calendar, Workload, Dashboard, My Work, automasi; approval project_budget & purchase_request
+- Projects berikutnya: view Timeline/Gantt, Calendar, Workload, Dashboard, My Work, automasi; approval project_budget & purchase_request
 - PDF untuk sales order / invoice (saat ini hanya quotation)
 - Scoring kualifikasi (rule-based dari `qualification_criteria` + Gemini/Vertex AI untuk catatan kunjungan)
 - Rate limit login, reset password, login Google Workspace

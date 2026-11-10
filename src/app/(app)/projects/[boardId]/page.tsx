@@ -19,7 +19,7 @@ import { pendingRequestFor } from "@/lib/approvals";
 import { now } from "@/lib/scope";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const VIEWS = ["Kanban", "Timeline", "Calendar", "Workload", "Dashboard"];
+const SOON = ["Timeline", "Calendar", "Workload", "Dashboard"];
 
 export async function generateMetadata({ params }: PageProps<"/projects/[boardId]">): Promise<Metadata> {
   const [{ boardId }, user] = await Promise.all([params, getCurrentUser()]);
@@ -35,7 +35,10 @@ export default async function BoardPage({ params, searchParams }: PageProps<"/pr
   const found = await loadBoard(user, boardId);
   if (!found) notFound();
   const { board, access } = found;
-  const p = parseBoardParams(sp);
+  const kanban = sp.view === "kanban";
+  const p = { ...parseBoardParams(sp), ...(kanban ? { groupBy: undefined } : {}) };
+  // Filters carry over between Table and Kanban; view-specific params don't.
+  const keepFilters = Object.fromEntries(["q", "person", "status", "group", "from", "to", "sort", "dir"].filter((k) => typeof sp[k] === "string" && sp[k]).map((k) => [k, sp[k] as string]));
   const search = Object.fromEntries(Object.entries(sp).filter((e): e is [string, string] => typeof e[1] === "string" && e[1] !== ""));
   const db = getDb();
 
@@ -71,7 +74,11 @@ export default async function BoardPage({ params, searchParams }: PageProps<"/pr
 
   let groups: GroupData[];
   let truncated = false;
-  if (p.groupBy) {
+  if (kanban) {
+    const res = await loadAllMatching(boardId, p, colKeys);
+    truncated = res.truncated;
+    groups = [{ id: "v-all", name: "All items", color: "c1", collapsed: false, total: res.items.length, summary: null, items: res.items }];
+  } else if (p.groupBy) {
     const res = await loadAllMatching(boardId, p, colKeys);
     truncated = res.truncated;
     const bucket = (key: string, name: string, color: string, items: ItemRow[]): GroupData => ({ id: `v-${key}`, name, color, collapsed: false, total: items.length, summary: null, items, virtual: true });
@@ -155,16 +162,26 @@ export default async function BoardPage({ params, searchParams }: PageProps<"/pr
       )}
       {archived && <p className="rounded-lg bg-surface-2 px-3 py-2 text-[13px] text-muted">This board is archived and read-only.</p>}
 
-      <div role="tablist" aria-label="Board views" className="flex gap-1 overflow-x-auto border-b border-line">
-        <span role="tab" aria-selected="true" className="whitespace-nowrap border-b-2 border-accent px-3 py-2 text-[13px] font-semibold text-accent">
-          Main Table
-        </span>
-        {VIEWS.map((v) => (
-          <span key={v} role="tab" aria-selected="false" aria-disabled="true" title="Coming in the next batch" className="whitespace-nowrap px-3 py-2 text-[13px] text-muted opacity-60">
+      <nav aria-label="Board views" className="flex gap-1 overflow-x-auto border-b border-line">
+        {[
+          { label: "Main Table", on: !kanban, query: { ...keepFilters } },
+          { label: "Kanban", on: kanban, query: { ...keepFilters, view: "kanban" } },
+        ].map((v) => (
+          <Link
+            key={v.label}
+            href={{ pathname: `/projects/${board.id}`, query: v.query }}
+            aria-current={v.on ? "page" : undefined}
+            className={`whitespace-nowrap border-b-2 px-3 py-2 text-[13px] ${v.on ? "border-accent font-semibold text-accent" : "border-transparent text-muted hover:text-fg"}`}
+          >
+            {v.label}
+          </Link>
+        ))}
+        {SOON.map((v) => (
+          <span key={v} aria-disabled="true" title="Coming in a next batch" className="whitespace-nowrap border-b-2 border-transparent px-3 py-2 text-[13px] text-muted opacity-60">
             {v}
           </span>
         ))}
-      </div>
+      </nav>
 
       <BoardTable
         key={stamp}
@@ -179,9 +196,10 @@ export default async function BoardPage({ params, searchParams }: PageProps<"/pr
         userId={user.id}
         search={search}
         sorted={Boolean(p.sort && columns.some((c) => c.key === p.sort))}
-        virtual={Boolean(p.groupBy)}
+        virtual={!kanban && Boolean(p.groupBy)}
         truncated={truncated}
-        realGroups={groupRows.map((g) => ({ id: g.id, name: g.name }))}
+        realGroups={groupRows.map((g) => ({ id: g.id, name: g.name, color: g.color }))}
+        view={kanban ? "kanban" : "table"}
         archived={archived}
         today={today}
       />

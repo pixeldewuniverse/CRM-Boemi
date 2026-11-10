@@ -23,6 +23,7 @@ import { GROUP_COLORS, groupHex, labelsOf, colorHex } from "@/lib/boards/columns
 import { Cell, PeoplePicker, type CellCtx } from "./cells";
 import { AddColumn, ColumnMenu, LabelEditor } from "./columns-ui";
 import { ItemPanel } from "./item-panel";
+import { KanbanView } from "./kanban-view";
 import { Toolbar } from "./toolbar";
 import { Faces, Popover, rangeLabel, shortDate, toast } from "./ui";
 import type { BoardAccessProps, Column, GroupData, GroupSummary, ItemRow, Opt, Person } from "./types";
@@ -43,7 +44,9 @@ export type BoardTableProps = {
   /** Grouped by a column instead of the board's groups. */
   virtual: boolean;
   truncated: boolean;
-  realGroups: { id: string; name: string }[];
+  realGroups: { id: string; name: string; color: string }[];
+  /** Table (default) or Kanban; Kanban gets every matching item in one list. */
+  view?: "table" | "kanban";
   archived: boolean;
   today: string;
 };
@@ -145,6 +148,7 @@ export function BoardTable(props: BoardTableProps) {
   const statusLabels = labelsOf(statusCol?.settings);
   const template = `${HANDLE}px ${visible.map((c) => `${c.width}px`).join(" ")} 44px`;
   const dragOff = props.sorted || props.virtual || !access.edit || props.archived;
+  const kanban = props.view === "kanban";
   const canAdd = access.edit && !props.archived && !props.virtual;
 
   const allItems = () => [...groups.flatMap((g) => g.items), ...Object.values(subs).flat()];
@@ -212,7 +216,8 @@ export function BoardTable(props: BoardTableProps) {
       setSubs((s) => ({ ...s, [parent.id]: [...(s[parent.id] ?? []), r.item] }));
       patchItem(parent.id, (i) => ({ ...i, subitemCount: i.subitemCount + 1 }));
       setExpanded((e) => new Set(e).add(parent.id));
-    } else setGroups((gs) => gs.map((g) => (g.id === groupId ? { ...g, items: [...g.items, r.item], total: g.total + 1 } : g)));
+    } else if (kanban) setGroups((gs) => gs.map((g, i) => (i === 0 ? { ...g, items: [...g.items, r.item], total: g.total + 1 } : g)));
+    else setGroups((gs) => gs.map((g) => (g.id === groupId ? { ...g, items: [...g.items, r.item], total: g.total + 1 } : g)));
     return r.item;
   }
 
@@ -637,28 +642,42 @@ export function BoardTable(props: BoardTableProps) {
         people={props.people}
         groups={props.realGroups}
         manage={ctx.manage}
+        view={kanban ? "kanban" : "table"}
         canAdd={canAdd && Boolean(firstGroup)}
         onNewItem={async () => {
           const item = await addItem(firstGroup.id, "New item");
           if (item) setOpenId(item.id);
         }}
       />
-      {props.sorted && <p className="text-[13px] text-muted">Sorted — drag and drop is off until you go back to manual order.</p>}
+      {props.sorted && !kanban && <p className="text-[13px] text-muted">Sorted — drag and drop is off until you go back to manual order.</p>}
       {props.truncated && <p className="text-[13px] text-warn">Showing the first 500 matching items. Narrow the filters to see the rest.</p>}
 
-      <div className="hidden md:block">
-        <div className="relative overflow-x-auto pb-2">
-          <DndContext sensors={sensors} collisionDetection={closestCorners} onDragStart={onDragStart} onDragOver={onDragOver} onDragEnd={onDragEnd} onDragCancel={() => { if (snapshot.current) setGroups(snapshot.current); snapshot.current = null; setActiveId(null); }}>
-            {groups.map(groupBlock)}
-            <DragOverlay>{active ? <div className="rounded-lg border border-accent bg-surface px-3 py-2 text-[13px] font-semibold shadow-panel">{active.name}</div> : null}</DragOverlay>
-          </DndContext>
+      {kanban ? (
+        (() => {
+          const lanesBy = cols.find((c) => c.key === props.search.lanes && c.type === "status") ?? cols.find((c) => c.key === "status");
+          return lanesBy ? (
+            <KanbanView items={groups.flatMap((g) => g.items)} column={lanesBy} priority={cols.find((c) => c.key === "priority")} groups={props.realGroups} ctx={ctx} />
+          ) : (
+            <p className="py-10 text-center text-muted">This board has no status column.</p>
+          );
+        })()
+      ) : (
+        <>
+        <div className="hidden md:block">
+          <div className="relative overflow-x-auto pb-2">
+            <DndContext sensors={sensors} collisionDetection={closestCorners} onDragStart={onDragStart} onDragOver={onDragOver} onDragEnd={onDragEnd} onDragCancel={() => { if (snapshot.current) setGroups(snapshot.current); snapshot.current = null; setActiveId(null); }}>
+              {groups.map(groupBlock)}
+              <DragOverlay>{active ? <div className="rounded-lg border border-accent bg-surface px-3 py-2 text-[13px] font-semibold shadow-panel">{active.name}</div> : null}</DragOverlay>
+            </DndContext>
+          </div>
         </div>
-      </div>
-      <div className="flex flex-col gap-5 md:hidden">{groups.map(mobileGroup)}</div>
+        <div className="flex flex-col gap-5 md:hidden">{groups.map(mobileGroup)}</div>
 
-      {!groups.length && <p className="py-10 text-center text-muted">No items match.</p>}
+        {!groups.length && <p className="py-10 text-center text-muted">No items match.</p>}
+        </>
+      )}
 
-      {ctx.manage && !props.virtual && (
+      {ctx.manage && !props.virtual && !kanban && (
         <button
           type="button"
           className="btn self-start"

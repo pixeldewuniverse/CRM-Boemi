@@ -18,6 +18,7 @@ export function Toolbar({
   manage,
   canAdd,
   onNewItem,
+  view = "table",
 }: {
   search: Record<string, string>;
   columns: Column[];
@@ -26,6 +27,7 @@ export function Toolbar({
   manage: boolean;
   canAdd: boolean;
   onNewItem: () => void;
+  view?: "table" | "kanban";
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -39,6 +41,7 @@ export function Toolbar({
   const picked = search.status?.split(",").filter(Boolean) ?? [];
   const hidden = search.hide?.split(",").filter(Boolean) ?? [];
   const filtered = Boolean(search.q || search.person || search.status || search.group || search.from || search.to);
+  const statusCols = columns.filter((c) => c.type === "status");
   const sortable = columns.filter((c) => SORTABLE.has(c.type) && !c.hidden);
 
   return (
@@ -140,16 +143,28 @@ export function Toolbar({
         </button>
       )}
 
-      <select aria-label="Group by" value={search.groupBy ?? ""} onChange={(e) => go({ groupBy: e.target.value || undefined })} className="input w-auto py-1.5">
-        <option value="">Group by: groups</option>
-        <option value="status">Group by: status</option>
-        <option value="priority">Group by: priority</option>
-        <option value="person">Group by: person</option>
-      </select>
+      {view === "table" ? (
+        <select aria-label="Group by" value={search.groupBy ?? ""} onChange={(e) => go({ groupBy: e.target.value || undefined })} className="input w-auto py-1.5">
+          <option value="">Group by: groups</option>
+          <option value="status">Group by: status</option>
+          <option value="priority">Group by: priority</option>
+          <option value="person">Group by: person</option>
+        </select>
+      ) : (
+        statusCols.length > 1 && (
+          <select aria-label="Lanes" value={search.lanes ?? "status"} onChange={(e) => go({ lanes: e.target.value === "status" ? undefined : e.target.value })} className="input w-auto py-1.5">
+            {statusCols.map((c) => (
+              <option key={c.key} value={c.key}>
+                Lanes: {c.title}
+              </option>
+            ))}
+          </select>
+        )
+      )}
 
-      <Popover label="Columns" className="" buttonClassName="flex" align="right" panelClassName="w-64" trigger={<span className="btn py-1.5">Columns</span>}>
+      {view === "table" && <Popover label="Columns" className="" buttonClassName="flex" align="right" panelClassName="w-64" trigger={<span className="btn py-1.5">Columns</span>}>
         {() => <ColumnsManager columns={columns} manage={manage} personalHidden={hidden} onPersonal={(keys) => go({ hide: keys.join(",") || undefined })} />}
-      </Popover>
+      </Popover>}
 
       {filtered && (
         <button type="button" className="text-[13px] font-semibold text-accent" onClick={() => go({ q: undefined, person: undefined, status: undefined, group: undefined, from: undefined, to: undefined })}>
