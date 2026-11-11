@@ -150,6 +150,7 @@ async function main() {
         await ensureBatch5Demo(tx as unknown as Db);
         await ensureBatch6Demo(tx as unknown as Db);
         await ensureBatch7Demo(tx as unknown as Db);
+        await ensureBatch8Demo(tx as unknown as Db);
       });
       return console.log("Demo data already present — skipping seed (batch 1 demo data checked).");
     }
@@ -174,6 +175,7 @@ async function main() {
       await ensureBatch5Demo(tx as unknown as Db);
       await ensureBatch6Demo(tx as unknown as Db);
       await ensureBatch7Demo(tx as unknown as Db);
+      await ensureBatch8Demo(tx as unknown as Db);
     });
     console.log("Seeded demo data: 8 users, 14 products, 12 accounts, leads, deals, quotations, orders (+12-month history), visits, tasks, campaigns, events, content.");
   } finally {
@@ -767,6 +769,68 @@ async function ensureBatch7Demo(db: Db) {
     const reason = "Owner called the GM directly — budget confirmed for Q1.";
     await db.update(schema.leads).set({ tierOverride: "warm", tierOverrideReason: reason, tierOverrideBy: manager.id, tierOverrideAt: new Date(), qualificationTier: "warm" }).where(eq(schema.leads.id, cold.id));
     await db.insert(schema.auditLogs).values({ actorId: manager.id, action: "override", entity: "lead_tier", entityId: cold.company, changes: { tier: ["cold (computed)", "warm"], reason } });
+  }
+}
+
+/* ── batch 8: content calendar — guidelines, design versions, references, history ── */
+const CONTENT_GUIDE = "BOEMI warm earth palette (terracotta, sand, leaf green). Natural light, real products, no stock faces. Logo bottom-right. Feed 1080×1350, Story/Reels 1080×1920.";
+async function ensureBatch8Demo(db: Db) {
+  const [any] = await db.select({ id: schema.contentActivity.id }).from(schema.contentActivity).limit(1);
+  if (any) return;
+  const users = await db.select({ id: schema.users.id, email: schema.users.email }).from(schema.users);
+  const u = (e: string) => users.find((x) => x.email === `${e}@example.test`)?.id ?? null;
+  const writer = u("marketing");
+  const designer = u("designer");
+  const manager = u("manager");
+
+  // A few posts for next month so the calendar isn't empty after November.
+  const extra: [string, string, string, string[], string, (typeof schema.contentStatusEnum.enumValues)[number], string][] = [
+    ["Year-end hamper unboxing", "2026-12-03", "19:00", ["Instagram", "TikTok"], "Reels", "ready_for_design", "Unboxing of the 3 hamper sizes; end on the pre-order deadline."],
+    ["Christmas spa ritual at home", "2026-12-10", "18:00", ["Instagram", "Facebook"], "Carousel", "draft_brief", "5 slides: a calm evening ritual with Rempah scrub and massage oil."],
+    ["Thank you, 2026 — our year in review", "2026-12-29", "10:00", ["Instagram", "LinkedIn"], "Carousel", "draft_brief", "Partners, outlets and numbers from this year."],
+  ];
+  for (const [title, date, time, channels, format, status, keyMessage] of extra) {
+    await db.insert(schema.contentItems).values({ title, publishAt: T(date, time), channels, format, status, writerId: writer, designerId: designer, objective: "Awareness", keyMessage });
+  }
+
+  const items = await db.select().from(schema.contentItems);
+  const flow: (typeof schema.contentStatusEnum.enumValues)[number][] = ["draft_brief", "ready_for_design", "in_design", "in_review", "approved", "scheduled", "published"];
+  const slug = (t: string) => t.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 40);
+  for (const it of items) {
+    const base = it.createdAt.getTime() - 10 * 86_400_000;
+    const at = (h: number) => new Date(base + h * 3_600_000);
+    const acts: (typeof schema.contentActivity.$inferInsert)[] = [{ contentId: it.id, actorId: writer, type: "created", toStatus: "draft_brief", createdAt: at(0) }];
+    const assets: (typeof schema.contentAssets.$inferInsert)[] = [];
+    const target = it.status === "revision" ? "in_review" : it.status;
+    const path = flow.slice(0, flow.indexOf(target) + 1);
+    let h = 4;
+    for (let i = 1; i < path.length; i++) {
+      const to = path[i];
+      if (to === "in_review") {
+        assets.push({ contentId: it.id, kind: "design", version: 1, name: `${it.title} — v1 (Canva)`, url: `https://www.canva.com/design/DEMO-${slug(it.title)}-v1/view`, uploadedBy: designer, createdAt: at(h) });
+        acts.push({ contentId: it.id, actorId: designer, type: "upload", body: `Design v1: ${it.title} — v1 (Canva)`, createdAt: at(h) });
+        h += 1;
+      }
+      acts.push({ contentId: it.id, actorId: ["in_design", "in_review"].includes(to) ? designer : writer, type: "status", fromStatus: path[i - 1], toStatus: to, createdAt: at(h) });
+      h += 6;
+    }
+    let designVersion = path.includes("in_design") ? 1 : 0;
+    if (it.status === "revision") {
+      const note = "Make the price bigger and use the terracotta background; the hamper should fill 70% of the frame.";
+      acts.push({ contentId: it.id, actorId: writer, type: "status", fromStatus: "in_review", toStatus: "revision", body: note, createdAt: at(h) });
+      acts.push({ contentId: it.id, actorId: designer, type: "comment", body: "Noted — I'll send v2 with the new background tomorrow morning.", createdAt: at(h + 1) });
+      designVersion = 2;
+    }
+    if (it.status === "in_review") acts.push({ contentId: it.id, actorId: manager, type: "comment", body: "Looks good. Can we add the WhatsApp number in the last frame?", createdAt: at(h) });
+    if (it.status !== "draft_brief") {
+      assets.unshift({ contentId: it.id, kind: "reference", version: 0, name: "Moodboard (Pinterest)", url: `https://www.pinterest.com/boemi-demo/${slug(it.title)}/`, uploadedBy: writer, createdAt: at(1) });
+    }
+    await db
+      .update(schema.contentItems)
+      .set({ guideline: CONTENT_GUIDE, designVersion, ...(it.status === "published" ? { publishedUrl: `https://www.instagram.com/p/DEMO${it.id.slice(0, 8)}/` } : {}) })
+      .where(eq(schema.contentItems.id, it.id));
+    await db.insert(schema.contentActivity).values(acts);
+    if (assets.length) await db.insert(schema.contentAssets).values(assets);
   }
 }
 

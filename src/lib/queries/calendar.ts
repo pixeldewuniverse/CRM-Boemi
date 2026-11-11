@@ -125,7 +125,7 @@ export async function calendarItems(user: CurrentUser, opts: { from: string; to:
             .select({ id: k.id, title: k.title, at: k.publishAt, status: k.status, format: k.format })
             .from(k)
             .where(and(mine(k.writerId, k.designerId), gte(k.publishAt, start), lt(k.publishAt, end)));
-          for (const r of rows) out.push({ key: `k${r.id}`, type, ...at(r.at), title: r.title, sub: r.format ?? undefined, href: "/marketing/content", done: r.status === "published" });
+          for (const r of rows) out.push({ key: `k${r.id}`, type, ...at(r.at), title: r.title, sub: r.format ?? undefined, href: `/marketing/content?open=${r.id}`, done: r.status === "published" });
           break;
         }
       }

@@ -250,11 +250,29 @@ Seed (`ensureBatch7Demo`):
 - beberapa follow-up yang lewat SLA;
 - satu tier yang di-override beserta alasannya.
 
+### Content Calendar (revisi)
+
+`/marketing/content` — kalender konten tempat brief, desain, review dan publish dikerjakan.
+
+- **Tampilan Month / Week / List** (CSS grid, minggu mulai Senin, WIB). Chip berwarna sesuai status; garis biru = *giliranmu*. Filter status, channel, *My turn*. Di HP: agenda per hari. URL `?view=week` dan `?open=<id>` bisa dibagikan (notifikasi langsung membuka post).
+- **Buat brief dari kalender**: tombol **+ Brief** atau **+** pada tanggal (tanggal terisi). Isi: judul, tanggal & jam publish, channel, format, campaign, writer, designer, objective, key message, guideline desain, caption, CTA, produk, hashtag; opsi *Send to the designer right away*.
+- **Drag post** ke hari lain = pindah tanggal (jam tetap). Hanya pihak writer; post *published* terkunci. Designer diberi tahu.
+- **Panel post** (klik chip): tab **Brief** (+ referensi file/link), **Design** (upload per versi v1, v2…, preview gambar/video), **Activity** (riwayat + komentar). Tombol langkah workflow sesuai role.
+- **Aturan di server** (`src/lib/content-flow.ts`, `src/app/actions/content.ts`):
+  - brief, edit, pindah tanggal, referensi, review: Marketing, Sales Manager, Super Admin; hapus hanya *Draft brief* (Super Admin: semua);
+  - upload desain: designer yang di-assign, saat *Ready for design / In design / Revision* (upload pertama otomatis memulai *In design*);
+  - *Submit for review* wajib ada file desain di versi berjalan; *Request revision* wajib catatan dan membuka versi berikutnya; versi yang sudah dikirim tidak bisa dihapus;
+  - komentar: pihak writer + designer yang di-assign (yang lain hanya melihat).
+- **File**: JPG/PNG/WebP/PDF/MP4 maks. 4 MB (batas body request Vercel 4,5 MB), dicek dari isi file. File lebih besar → tempel link Canva/Drive. Disimpan lewat storage driver (`content/<postId>/…`) dan hanya bisa dibuka lewat `/api/files` oleh user yang bisa membuka Content Calendar.
+- Tabel baru: `content_assets`, `content_activity`; kolom `guideline`, `design_version`, `published_url` (migration `0012_content_calendar.sql`). Semua perubahan masuk audit trail.
+
 ## Data demo
 
 `src/db/seed.ts` mengisi data dummy dari demo (`src/db/demo/demo-data.json`): 8 user persona, 12 akun, 14 produk, lead, deal, quotation, order + riwayat 12 bulan, visit, task, target, campaign, event, konten. Tanggal digeser supaya "hari ini" di demo = hari seed dijalankan.
 
 Data Batch 1 (`ensureBatch1Demo`, aman dijalankan berulang — juga mengisi database staging yang sudah di-seed sebelumnya): satuan produk, catatan kontak, 13 log aktivitas, target 4 metrik (bulan ini & lalu), riwayat pembayaran deposit/pelunasan, status pengiriman, data perusahaan dummy untuk PDF, counter nomor dokumen yang melanjutkan nomor demo, 1 quotation draft dengan diskon 15% yang menunggu approval manager, tautan campaign di beberapa akun.
+
+Data Content Calendar (`ensureBatch8Demo`): guideline di semua post, 3 post Desember, riwayat status lengkap, desain v1 (link Canva dummy) + referensi moodboard, satu post *Revision* dengan catatan dan komentar designer (versi berikutnya v2), satu post *In review* dengan komentar manager, link live post pada yang *published*.
 
 Data Batch 5a (`ensureBatch5Demo`): project **Alas Harum — Amenities Rollout Q1** (PM Rizky; grup Planning/Production/Delivery; 15 item + 6 subitem, dependency, 1 milestone; kolom Budget (Rp), Channel, Approved, Brief, Notes; member Komang & Ayu editor, Sri designer *edit own only*) dan team board **Content Requests** di Marketing, plus workflow approval project ≥ Rp 50 jt.
 

@@ -4,6 +4,7 @@ import { verifyUser } from "@/lib/auth";
 import { visibleUserIds } from "@/lib/scope";
 import { loadBoard } from "@/lib/boards/access";
 import { getStorage } from "@/lib/storage";
+import { canOpen, findNav } from "@/lib/nav";
 
 /**
  * Streams a private file to a signed-in user who may see the record it
@@ -31,6 +32,25 @@ export async function GET(_request: Request, ctx: RouteContext<"/api/files/[...k
         "Cache-Control": "private, max-age=300",
         "X-Content-Type-Options": "nosniff",
         "Content-Security-Policy": "default-src 'none'; img-src 'self'; style-src 'unsafe-inline'",
+        ...(file.size ? { "Content-Length": String(file.size) } : {}),
+      },
+    });
+  }
+  // Content calendar files: everyone who can open the Content Calendar, only for files still attached to a post.
+  if (objectKey.startsWith("content/")) {
+    const nav = findNav("/marketing/content");
+    const [asset] = nav && canOpen(nav.item, user.role)
+      ? await getDb().select({ name: schema.contentAssets.name }).from(schema.contentAssets).where(eq(schema.contentAssets.fileKey, objectKey)).limit(1)
+      : [];
+    const file = asset ? await (await getStorage()).read(objectKey) : null;
+    if (!file) return Response.json({ error: "Not found" }, { status: 404 });
+    return new Response(file.stream, {
+      headers: {
+        "Content-Type": file.contentType,
+        "Content-Disposition": `inline; filename*=UTF-8''${encodeURIComponent(asset.name)}`,
+        "Cache-Control": "private, max-age=300",
+        "X-Content-Type-Options": "nosniff",
+        "Content-Security-Policy": "default-src 'none'; img-src 'self'; media-src 'self'; style-src 'unsafe-inline'",
         ...(file.size ? { "Content-Length": String(file.size) } : {}),
       },
     });

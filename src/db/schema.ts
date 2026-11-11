@@ -712,10 +712,61 @@ export const contentItems = pgTable(
     cta: text("cta"),
     hashtags: text("hashtags"),
     products: text("products"),
+    /** Brand / visual guideline the designer follows (free text, links allowed). */
+    guideline: text("guideline"),
+    /** Design version the designer is working on (0 = not started; +1 on every revision request). */
+    designVersion: integer("design_version").notNull().default(0),
+    /** Live post URL, filled when it is marked published. */
+    publishedUrl: text("published_url"),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
   (t) => [index("content_items_publish_idx").on(t.publishAt)],
+);
+
+export const contentAssetKindEnum = pgEnum("content_asset_kind", ["reference", "design"]);
+
+/**
+ * Files and links on a post: references from the writer, design results from
+ * the designer (per version). A row holds either a private storage key or a URL
+ * (Canva, Google Drive — for files too large to upload).
+ */
+export const contentAssets = pgTable(
+  "content_assets",
+  {
+    id: id(),
+    contentId: uuid("content_id")
+      .notNull()
+      .references(() => contentItems.id, { onDelete: "cascade" }),
+    kind: contentAssetKindEnum("kind").notNull(),
+    version: integer("version").notNull().default(0),
+    name: text("name").notNull(),
+    fileKey: text("file_key"),
+    url: text("url"),
+    mime: text("mime"),
+    size: integer("size"),
+    uploadedBy: uuid("uploaded_by").references(() => users.id, { onDelete: "set null" }),
+    createdAt: createdAt(),
+  },
+  (t) => [index("content_assets_content_idx").on(t.contentId), index("content_assets_key_idx").on(t.fileKey)],
+);
+
+/** Timeline of a post: created, edited, rescheduled, status changes, uploads and comments. */
+export const contentActivity = pgTable(
+  "content_activity",
+  {
+    id: id(),
+    contentId: uuid("content_id")
+      .notNull()
+      .references(() => contentItems.id, { onDelete: "cascade" }),
+    actorId: uuid("actor_id").references(() => users.id, { onDelete: "set null" }),
+    type: text("type").notNull(), // created | edited | rescheduled | status | upload | removed | comment
+    fromStatus: text("from_status"),
+    toStatus: text("to_status"),
+    body: text("body"),
+    createdAt: createdAt(),
+  },
+  (t) => [index("content_activity_content_idx").on(t.contentId, t.createdAt)],
 );
 
 /* ──────────────────────── Activity log ──────────────────────── */

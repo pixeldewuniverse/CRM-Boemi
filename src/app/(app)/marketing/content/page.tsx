@@ -1,123 +1,72 @@
 import type { Metadata } from "next";
-import { asc, eq } from "drizzle-orm";
-import { alias } from "drizzle-orm/pg-core";
+import { asc, count, inArray } from "drizzle-orm";
 import { PageHeader } from "@/components/page/page-header";
-import { FilterChips } from "@/components/ui/filter-chips";
-import { Empty, Panel } from "@/components/ui/panel";
-import { StatusPill } from "@/components/ui/pill";
 import { getDb, schema } from "@/db";
 import { getCurrentUser } from "@/lib/auth";
-import { ftime, ymd } from "@/lib/format";
-import { CONTENT_FLOW, CONTENT_STATUS } from "@/lib/labels";
+import { ymd } from "@/lib/format";
 import { now } from "@/lib/scope";
-import { ContentActions } from "@/components/forms/content-actions";
-import { CONTENT_STEPS, canTakeStep } from "@/lib/content-flow";
+import { CONTENT_STEPS, canEditBrief, canTakeStep, isWriter } from "@/lib/content-flow";
+import { ContentCalendar, type Post } from "@/components/content/content-calendar";
+import { NewBriefButton } from "@/components/content/brief-form";
 
 export const metadata: Metadata = { title: "Content Calendar" };
 const HREF = "/marketing/content";
-type Status = (typeof CONTENT_FLOW)[number];
+const VIEWS = ["month", "week", "list"] as const;
+
+const wibTime = (d: Date) => d.toLocaleTimeString("en-GB", { timeZone: "Asia/Jakarta", hour: "2-digit", minute: "2-digit", hour12: false });
 
 export default async function ContentPage({ searchParams }: PageProps<"/marketing/content">) {
   const user = await getCurrentUser();
   const params = await searchParams;
-  const status = CONTENT_FLOW.includes(params.status as Status) ? (params.status as Status) : undefined;
   const today = ymd(await now());
   const c = schema.contentItems;
-  const designer = alias(schema.users, "designer");
+  const db = getDb();
 
-  const all = await getDb()
-    .select({
-      id: c.id,
-      title: c.title,
-      at: c.publishAt,
-      channels: c.channels,
-      format: c.format,
-      status: c.status,
-      objective: c.objective,
-      keyMessage: c.keyMessage,
-      cta: c.cta,
-      products: c.products,
-      writer: schema.users.name,
-      writerId: c.writerId,
-      designer: designer.name,
-      designerId: c.designerId,
-    })
-    .from(c)
-    .leftJoin(schema.users, eq(schema.users.id, c.writerId))
-    .leftJoin(designer, eq(designer.id, c.designerId))
-    .orderBy(asc(c.publishAt));
+  const [items, files, users, campaigns] = await Promise.all([
+    db.select().from(c).orderBy(asc(c.publishAt)),
+    db.select({ id: schema.contentAssets.contentId, n: count() }).from(schema.contentAssets).groupBy(schema.contentAssets.contentId),
+    db
+      .select({ id: schema.users.id, name: schema.users.name, role: schema.users.role, active: schema.users.active })
+      .from(schema.users)
+      .where(inArray(schema.users.role, ["admin", "marketing", "sales_manager", "designer"]))
+      .orderBy(asc(schema.users.name)),
+    db.select({ id: schema.campaigns.id, name: schema.campaigns.name }).from(schema.campaigns).orderBy(asc(schema.campaigns.name)),
+  ]);
+  const people = Object.fromEntries(users.map((u) => [u.id, u.name]));
+  const fileCount = new Map(files.map((f) => [f.id, f.n]));
 
-  const rows = status ? all.filter((r) => r.status === status) : all;
-  const byDay = new Map<string, typeof rows>();
-  for (const r of rows) {
-    const key = ymd(r.at);
-    byDay.set(key, [...(byDay.get(key) ?? []), r]);
-  }
-  const stepsFor = (r: (typeof all)[number]) => CONTENT_STEPS[r.status].filter((st) => canTakeStep(st, user.role, user.id, r.designerId));
-  const myTurn = (r: (typeof all)[number]) =>
-    (user.role === "designer" || user.role === "marketing") && stepsFor(r).length > 0;
+  const posts: Post[] = items.map((r) => {
+    const steps = CONTENT_STEPS[r.status].filter((st) => canTakeStep(st, user.role, user.id, r.designerId));
+    return {
+      id: r.id,
+      title: r.title,
+      date: ymd(r.publishAt),
+      time: wibTime(r.publishAt),
+      status: r.status,
+      channels: r.channels,
+      format: r.format,
+      writer: r.writerId ? (people[r.writerId] ?? null) : null,
+      designer: r.designerId ? (people[r.designerId] ?? null) : null,
+      keyMessage: r.keyMessage,
+      // Designers: posts assigned to them that wait on design. Writers: posts waiting on the writer side.
+      myTurn: user.role === "admin" ? false : steps.length > 0 && (user.role === "designer" || r.writerId === user.id || r.writerId === null),
+      canMove: canEditBrief(user.role, r.status),
+      files: fileCount.get(r.id) ?? 0,
+    };
+  });
+  const options = {
+    writers: users.filter((u) => u.active && isWriter(u.role)).map((u) => ({ value: u.id, label: u.name })),
+    designers: users.filter((u) => u.active && u.role === "designer").map((u) => ({ value: u.id, label: u.name })),
+    campaigns: campaigns.map((x) => ({ value: x.id, label: x.name })),
+  };
+  const view = VIEWS.includes(params.view as (typeof VIEWS)[number]) ? (params.view as (typeof VIEWS)[number]) : "month";
+  const open = typeof params.open === "string" && /^[0-9a-f-]{36}$/i.test(params.open) ? params.open : null;
+  const canCreate = isWriter(user.role);
 
   return (
     <>
-      <PageHeader href={HREF} />
-      <FilterChips
-        pathname={HREF}
-        param="status"
-        value={status}
-        options={[
-          { value: undefined, label: "All", count: all.length },
-          ...CONTENT_FLOW.map((s) => ({ value: s, label: CONTENT_STATUS[s].label, count: all.filter((r) => r.status === s).length })),
-        ]}
-      />
-      <Panel flush>
-        {rows.length === 0 ? (
-          <Empty>No content in this status.</Empty>
-        ) : (
-          <ol className="divide-y divide-line">
-            {[...byDay.entries()].map(([day, items]) => {
-              const d = new Date(`${day}T00:00:00+07:00`);
-              const isToday = day === today;
-              return (
-                <li key={day} className="grid gap-3 px-4 py-3 sm:grid-cols-[6.5rem_1fr]">
-                  <div className={isToday ? "text-accent" : day < today ? "text-muted" : ""}>
-                    <p className="text-xs font-semibold uppercase tracking-wide">
-                      {d.toLocaleDateString("en-GB", { timeZone: "Asia/Jakarta", weekday: "short" })}
-                      {isToday && " · today"}
-                    </p>
-                    <p className="text-lg font-bold leading-tight">
-                      {d.toLocaleDateString("en-GB", { timeZone: "Asia/Jakarta", day: "numeric", month: "short" })}
-                    </p>
-                  </div>
-                  <div className="flex flex-col gap-2">
-                    {items.map((r) => (
-                      <article key={r.id} className={`rounded-lg border p-3 ${myTurn(r) ? "border-accent" : "border-line"}`}>
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span className="text-xs tabular-nums text-muted">{ftime(r.at)}</span>
-                          <span className="text-xs font-semibold">{r.channels.join(" · ")}</span>
-                          <span className="text-xs text-muted">{r.format}</span>
-                          <span className="ml-auto">
-                            <StatusPill map={CONTENT_STATUS} value={r.status} />
-                          </span>
-                        </div>
-                        <p className="mt-1 font-semibold">{r.title}</p>
-                        <p className="text-[13px] text-muted">
-                          {r.objective} — <span className="text-fg">{r.keyMessage}</span>
-                        </p>
-                        <p className="mt-1 text-xs text-muted">
-                          Writer {r.writer ?? "—"} · Designer {r.designer ?? "—"}
-                          {r.products ? ` · ${r.products}` : ""}
-                          {myTurn(r) && <span className="ml-1 font-semibold text-accent">· your turn</span>}
-                        </p>
-                        <ContentActions contentId={r.id} title={r.title} steps={stepsFor(r)} />
-                      </article>
-                    ))}
-                  </div>
-                </li>
-              );
-            })}
-          </ol>
-        )}
-      </Panel>
+      <PageHeader href={HREF} actions={canCreate ? <NewBriefButton options={options} today={today} /> : undefined} />
+      <ContentCalendar posts={posts} today={today} canCreate={canCreate} options={options} people={people} initialView={view} initialOpen={open} />
     </>
   );
 }

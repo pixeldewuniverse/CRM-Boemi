@@ -107,8 +107,11 @@ Umum untuk semua skenario:
 | DSG-01 | Project Alas Harum: ubah status *Label & packaging design* (di-assign ke Sri). | Bisa. | |
 | DSG-02 | Coba ubah *Kick-off with the Alas Harum GM* (bukan miliknya), drag kartunya di Kanban, geser barnya di Timeline. | Sel terkunci, kartu & bar tidak bisa dipindah. Bila dipaksa lewat server: "You can only edit items assigned to you." | |
 | DSG-03 | Board **Content Requests**: tambah item baru. | Item otomatis di-assign ke Sri. | |
-| DSG-04 | **Marketing → Content Calendar**: upload hasil desain pada konten yang menunggu desainer. | Status maju ke review; content writer dapat notifikasi. | |
-| DSG-05 | `/report/sales`, `/settings/audit`. | Ditolak. | |
+| DSG-04 | **Content Calendar** → klik post *Ready for design* → tab **Design** → upload PNG/JPG. | Preview muncul sebagai *Version 1*; status otomatis *In design*. | |
+| DSG-05 | Klik **Submit for review** pada post *In design* yang belum punya file (mis. *Eco-friendly amenities*). Lalu upload file → submit lagi. | Pertama ditolak "Upload the design (v1)…"; setelah upload → *In review*, writer dapat notifikasi. | |
+| DSG-06 | Post *Revision* (*Hamper pre-orders are open*): baca catatan revisi, upload v2, **Resubmit for review**. | Catatan merah terlihat; v2 tersimpan terpisah dari v1; v1 tidak bisa dihapus. | |
+| DSG-07 | Coba drag post di kalender; cari tombol **+ Brief**. | Post tidak bisa di-drag; tidak ada tombol brief (hanya pihak writer). | |
+| DSG-08 | `/report/sales`, `/settings/audit`. | Ditolak. | |
 
 ## Marketing User — Wulan (`marketing@`)
 
@@ -120,6 +123,13 @@ Umum untuk semua skenario:
 | MKT-04 | **Contact Today**. | Terbuka; lead tanpa owner tetap ada di urutan. | |
 | MKT-05 | Board **Content Requests** (owner): tambah kolom, edit label status. | Bisa; status wajib punya ≥ 1 label kategori *Done*. | |
 | MKT-06 | `/report/marketing`. | Ditolak (Reporting: Executive & Department Head). | |
+| MKT-07 | **Content Calendar** (Month): arahkan kursor ke tanggal → **+** → simpan tanpa isi; lalu isi judul, channel Instagram + TikTok, format Reels, designer Sri, guideline, centang *Send to the designer right away*. | Tanpa isi: error per field. Setelah diisi: post muncul di tanggal itu, status *Ready for design*, Sri dapat notifikasi. | |
+| MKT-08 | Drag post tadi ke tanggal lain; buka panelnya → tab **Activity**. | Tanggal pindah (jam tetap) dan tetap setelah refresh; riwayat "moved the date". | |
+| MKT-09 | Panel → tab **Brief** → tambah referensi *Link* (https://…) dan file PDF. Coba link `http://…`. | Referensi tampil; link non-https ditolak. | |
+| MKT-10 | Post *In review*: lihat desain → **Request revision** tanpa catatan, lalu dengan catatan. | Tanpa catatan ditolak; dengan catatan → *Revision*, designer dapat notifikasi, versi berikutnya v2. | |
+| MKT-11 | Setelah v2: **Approve → Schedule → Mark published** (isi link live post). | Status berurutan; link *View the live post* muncul; post tidak bisa di-drag / diedit lagi. | |
+| MKT-12 | Tulis komentar di tab **Activity**; ganti tampilan **Week** dan **List**; filter channel TikTok + *My turn*. | Komentar tampil dan designer dapat notifikasi; tiga tampilan & filter berjalan; di HP 375 px tampil sebagai agenda. | |
+| MKT-13 | Hapus post *Draft brief*; coba hapus post yang sudah *In review*. | Draft terhapus; tombol Delete tidak ada untuk post lain. | |
 
 ## General Staff — Made (`staff@`)
 

@@ -35,3 +35,25 @@ export function canTakeStep(step: ContentStep, role: string, userId: string, des
   if (step.side === "writer") return role === "marketing" || role === "sales_manager";
   return role === "designer" && designerId === userId;
 }
+
+export const CONTENT_CHANNELS = ["Instagram", "Facebook", "TikTok", "LinkedIn", "YouTube", "Email", "Website", "WhatsApp"] as const;
+export const CONTENT_FORMATS = ["Feed", "Carousel", "Reels", "Story", "Video", "Post", "Newsletter", "Article"] as const;
+
+/** Writer side: plans briefs, edits, reschedules, reviews. */
+export const isWriter = (role: string) => role === "admin" || role === "marketing" || role === "sales_manager";
+
+/** May edit the brief / move the date / add references (anything but a published post). */
+export const canEditBrief = (role: string, status: ContentStatus) => isWriter(role) && status !== "published";
+
+/** Drafts can be deleted by the writer side; Super Admin may delete any post. */
+export const canDeleteContent = (role: string, status: ContentStatus) => role === "admin" || (isWriter(role) && status === "draft_brief");
+
+/** Design results: the assigned designer (or Super Admin) while the post is with design. */
+export const DESIGN_OPEN: ContentStatus[] = ["ready_for_design", "in_design", "revision"];
+export const canUploadDesign = (role: string, userId: string, designerId: string | null, status: ContentStatus) =>
+  DESIGN_OPEN.includes(status) && (role === "admin" || (role === "designer" && designerId === userId));
+
+/** Comments: writer side and the assigned designer. Everyone else reads. */
+export const canComment = (role: string, userId: string, designerId: string | null) => isWriter(role) || (role === "designer" && designerId === userId);
+
+export const MAX_CONTENT_FILE_MB = 4;
