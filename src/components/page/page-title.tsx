@@ -12,7 +12,7 @@ export function PageTitle({
   return (
     <div className="flex flex-wrap items-end gap-3">
       <div>
-        <h1 className="text-[28px] font-bold leading-tight tracking-[-0.02em] [text-wrap:balance] md:text-[30px]">
+        <h1 className="font-display text-[30px] font-normal leading-tight [text-wrap:balance] md:text-[34px]">
           {title}
         </h1>
         {description && <p className="mt-1 max-w-[62ch] text-muted">{description}</p>}

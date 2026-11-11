@@ -21,5 +21,5 @@ export function proxy(request: NextRequest) {
 
 export const config = {
   // Public: login, API (checks its own auth), assets, PWA files.
-  matcher: ["/((?!login|api|_next/static|_next/image|favicon.ico|icon.png|apple-icon.png|icons/|sw.js|manifest.webmanifest).*)"],
+  matcher: ["/((?!login|api|_next/static|_next/image|favicon.ico|icon.png|apple-icon.png|icons/|brand/|sw.js|manifest.webmanifest).*)"],
 };

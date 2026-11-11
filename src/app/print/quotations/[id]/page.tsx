@@ -10,6 +10,7 @@ import { QUOTE_STATUS } from "@/lib/labels";
 import { loadQuotation } from "@/lib/records";
 import { ownedBy } from "@/lib/scope";
 import { getSetting } from "@/lib/settings";
+import { Lockup, Logogram } from "@/components/brand/logo";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -70,15 +71,20 @@ export default async function PrintQuotation({ params }: PageProps<"/print/quota
             DRAFT
           </p>
         )}
-        <header className="relative flex flex-wrap items-start justify-between gap-6 border-b-2 border-neutral-900 pb-4">
+        <header className="relative flex flex-wrap items-start justify-between gap-6 border-b-2 border-[#616b37] pb-4">
           <div>
-            <p className="text-xl font-extrabold tracking-wide">{company.name}</p>
+            {/* Letterhead per the BOEMI brand guideline: logogram + wordmark in leaf green. */}
+            <div className="mb-2 flex items-center gap-2.5 text-[#616b37]">
+              <Logogram className="size-11" />
+              <Lockup className="h-9 w-auto" title={company.name} />
+            </div>
+            <p className="font-bold tracking-wide">{company.name}</p>
             <p className="whitespace-pre-line text-neutral-600">{company.address}</p>
             <p className="text-neutral-600">{[company.phone, company.email].filter(Boolean).join(" · ")}</p>
             {company.taxId && <p className="text-neutral-600">NPWP {company.taxId}</p>}
           </div>
           <div className="text-right">
-            <h1 className="text-2xl font-extrabold tracking-[0.2em]">QUOTATION</h1>
+            <h1 className="font-display text-[26px] tracking-[0.2em] text-[#616b37]">QUOTATION</h1>
             <p className="font-semibold">{quote.quoteNo}</p>
             {!["draft", "sent"].includes(quote.status) && <p className="text-neutral-600">Status: {QUOTE_STATUS[quote.status].label}</p>}
           </div>
@@ -109,7 +115,7 @@ export default async function PrintQuotation({ params }: PageProps<"/print/quota
 
         <table className="relative mt-6 w-full border-collapse text-left">
           <thead>
-            <tr className="border-y border-neutral-900 text-[11px] uppercase tracking-wider">
+            <tr className="border-y border-[#616b37] text-[11px] uppercase tracking-wider text-[#4c5b20]">
               <th className="py-2 pr-2">#</th>
               <th className="py-2 pr-2">Product</th>
               <th className="py-2 pr-2 text-right">Qty</th>

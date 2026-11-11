@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { BrandMark } from "@/components/brand/logo";
 import { usePathname } from "next/navigation";
 import { Suspense, useState, type ReactNode } from "react";
 import { Icon } from "@/components/icon";
@@ -37,13 +38,7 @@ export function AppShell({ children, ...slots }: Slots & { children: ReactNode }
         }`}
       >
         <div className="flex items-center gap-2.5 px-2">
-          <span className="grid size-[34px] flex-none place-items-center rounded-[9px] bg-accent text-[13px] font-extrabold text-accent-ink">
-            B
-          </span>
-          <div>
-            <b className="block text-[15px] font-bold">BOEMI</b>
-            <small className="block text-[11px] tracking-[0.04em] text-muted">Sales &amp; Marketing Tools</small>
-          </div>
+          <BrandMark />
           <button
             type="button"
             onClick={close}

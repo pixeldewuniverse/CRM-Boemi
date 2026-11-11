@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import { LoginForm } from "./login-form";
+import { Lockup, Logogram } from "@/components/brand/logo";
 
 export const metadata: Metadata = { title: "Sign in" };
 
@@ -8,16 +9,12 @@ export default function LoginPage() {
   return (
     <main className="flex min-h-screen items-center justify-center px-4">
       <div className="panel w-full max-w-sm p-8 shadow-panel">
-        <div className="flex items-center gap-2.5">
-          <span className="grid size-[34px] place-items-center rounded-[9px] bg-accent text-[13px] font-extrabold text-accent-ink">
-            B
-          </span>
-          <div>
-            <b className="block text-[15px] font-bold">BOEMI</b>
-            <small className="block text-[11px] tracking-[0.04em] text-muted">Sales &amp; Marketing Tools</small>
-          </div>
+        <div className="flex flex-col items-center gap-3 text-center">
+          <Logogram className="size-14 text-accent" />
+          <Lockup className="h-12 w-auto text-accent" title="BOEMI Botanicals" />
+          <small className="text-[11px] uppercase tracking-[0.18em] text-muted">Sales &amp; Marketing Tools</small>
         </div>
-        <h1 className="mt-6 text-2xl font-bold tracking-[-0.02em]">Sign in</h1>
+        <h1 className="mt-7 font-display text-[28px] leading-tight">Sign in</h1>
         <p className="mt-1 text-muted">Use your company account.</p>
         <Suspense>
           <LoginForm />

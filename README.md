@@ -14,6 +14,8 @@ Portal internal Sales & Marketing untuk BOEMI. Saat ini berjalan sebagai **stagi
 | Cron | Vercel Cron (`vercel.json`) | **Cloud Scheduler** → endpoint yang sama |
 | Email | log saja / SMTP | SMTP Google Workspace |
 
+Font: `@fontsource-variable/plus-jakarta-sans` + `@fontsource/marcellus` (self-hosted, tanpa Google Fonts saat runtime).
+
 ORM: **Drizzle** + driver `postgres` standar (tanpa fitur khusus Neon). Auth: sesi cookie terenkripsi (`iron-session`) + bcrypt; login Google Workspace (SSO) menyusul setelah Workspace BOEMI siap.
 
 ## Mulai lokal
@@ -265,6 +267,16 @@ Seed (`ensureBatch7Demo`):
   - komentar: pihak writer + designer yang di-assign (yang lain hanya melihat).
 - **File**: JPG/PNG/WebP/PDF/MP4 maks. 4 MB (batas body request Vercel 4,5 MB), dicek dari isi file. File lebih besar → tempel link Canva/Drive. Disimpan lewat storage driver (`content/<postId>/…`) dan hanya bisa dibuka lewat `/api/files` oleh user yang bisa membuka Content Calendar.
 - Tabel baru: `content_assets`, `content_activity`; kolom `guideline`, `design_version`, `published_url` (migration `0012_content_calendar.sql`). Semua perubahan masuk audit trail.
+
+### Brand BOEMI Botanicals
+
+Mengikuti *BOEMI BOTANICALS — Brand Identity* (21.05.25).
+
+- **Warna**: semua token di `src/app/globals.css` (`:root` terang, `prefers-color-scheme: dark` gelap). Leaf green `#616B37` = aksen (tombol, link, menu aktif); latar krem dari *white flower*; teks *charcoal* `#1D2124`; garis dari *stone grey*; mode gelap dari *night black* `#141416`. Warna status (hijau/kuning/merah/biru) tetap bermakna sama dengan nada BOEMI; semua pasangan teks–latar ≥ 4,5 : 1. Warna grafik (`--c1…--c4`) lolos validator palet (terang & gelap, termasuk buta warna). Hex diambil dari swatch PDF — ganti dengan kode resmi bila desainer mengirimnya.
+- **Font**: guideline memakai *Linotype Brewery* (judul) dan *AT Surt* (isi) — perlu lisensi webfont. Sementara: **Marcellus** (judul, `font-display`, paket `@fontsource/marcellus`, OFL) dan **Plus Jakarta Sans** (isi). Nama font resmi sudah ada di depan stack `--font-display` / `--font-sans`; setelah lisensi ada, tambahkan `@font-face` dengan file `.woff2` dan font resmi langsung dipakai.
+- **Logo**: `src/components/brand/logo.tsx` (`Logogram`, `Wordmark`, `Lockup`, `BrandMark`) — SVG hasil trace dari PDF dan PNG logo, warna `currentColor`. File publik `public/brand/` (`boemi-botanicals.png` untuk email, SVG untuk keperluan lain). Ganti path SVG dengan file resmi desainer bila sudah ada.
+- **Ikon**: favicon, ikon iPhone, ikon PWA/maskable (logogram putih di leaf green) dan badge notifikasi Android (logogram putih).
+- **Dokumen & email**: kop quotation (logogram + lockup, garis leaf green, judul Marcellus); email notifikasi otomatis memakai template HTML BOEMI (`brandedHtml` di `src/lib/email.ts`, logo dari `APP_URL/brand/boemi-botanicals.png`).
 
 ## Data demo
 
