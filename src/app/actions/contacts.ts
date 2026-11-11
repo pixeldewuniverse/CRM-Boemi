@@ -74,6 +74,7 @@ export async function createContact(_prev: FormState, fd: FormData): Promise<For
 }
 
 export async function updateContact(_prev: FormState, fd: FormData): Promise<FormState> {
+  await verifyUser(); // before any read (validate() checks access to the account)
   const id = z.uuid().safeParse(fd.get("id"));
   if (!id.success) return { ok: false, error: "Invalid contact." };
   const [current] = await getDb().select({ customerId: schema.contacts.customerId }).from(schema.contacts).where(eq(schema.contacts.id, id.data));

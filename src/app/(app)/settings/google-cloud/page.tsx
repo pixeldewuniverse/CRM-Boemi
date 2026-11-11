@@ -4,6 +4,7 @@ import { guard } from "@/components/page/guard";
 import { PageHeader } from "@/components/page/page-header";
 import { Panel } from "@/components/ui/panel";
 import { Pill } from "@/components/ui/pill";
+import { aiConfig } from "@/lib/qualification/providers";
 
 export const metadata: Metadata = { title: "Google Cloud" };
 const HREF = "/settings/google-cloud";
@@ -18,23 +19,35 @@ export default async function GoogleCloudPage() {
   } catch {}
   const onNeon = dbHost.endsWith("neon.tech");
   const gcs = process.env.STORAGE_DRIVER === "gcs";
+  // Cloud Run sets K_SERVICE; Vercel sets VERCEL. Display only — no logic depends on it.
+  const onCloudRun = Boolean(process.env.K_SERVICE);
+  const ai = aiConfig();
 
   const rows = [
-    { part: "Application", now: "Vercel (staging)", target: "Cloud Run · asia-southeast2 (Jakarta)" },
+    { part: "Application", now: onCloudRun ? `Cloud Run (${process.env.K_SERVICE})` : "Vercel (staging)", target: "Cloud Run · asia-southeast2 (Jakarta)" },
     { part: "Database", now: onNeon ? "Neon Postgres (staging)" : "PostgreSQL", target: "Cloud SQL for PostgreSQL" },
     { part: "Photos & files", now: gcs ? "Cloud Storage" : "Vercel Blob, private (staging)", target: "Cloud Storage, private bucket" },
-    { part: "Scheduled jobs", now: "Vercel Cron", target: "Cloud Scheduler" },
-    { part: "Secrets", now: "Vercel environment variables", target: "Secret Manager" },
+    { part: "Scheduled jobs", now: onCloudRun ? "Cloud Scheduler" : "Vercel Cron", target: "Cloud Scheduler (deploy/cloud-scheduler.sh)" },
+    { part: "Secrets", now: onCloudRun ? "Cloud Run environment / Secret Manager" : "Vercel environment variables", target: "Secret Manager" },
     { part: "Sign-in", now: "Email + password", target: "Google Workspace accounts" },
-    { part: "AI qualification", now: "—", target: "Vertex AI (Gemini)" },
+    { part: "AI qualification", now: !ai.on ? "Off (rules only)" : ai.provider === "mock" ? "Demo (simulated)" : `${ai.provider === "vertex" ? "Vertex AI" : "Gemini API"} · ${ai.model}`, target: "Vertex AI (Gemini Flash-Lite)" },
   ];
 
   return (
     <>
       <PageHeader href={HREF} />
       <div className="flex flex-wrap items-center gap-2 rounded-xl border border-line bg-surface px-4 py-3 text-[13px]">
-        <Pill tone="warn">Staging</Pill>
-        This environment runs on Vercel with dummy data. Real customer data is only loaded after the move to your Google Cloud project.
+        {onCloudRun ? (
+          <>
+            <Pill tone="ok">Google Cloud</Pill>
+            This environment runs on Cloud Run in your Google Cloud project.
+          </>
+        ) : (
+          <>
+            <Pill tone="warn">Staging</Pill>
+            This environment runs on Vercel with dummy data. Real customer data is only loaded after the move to your Google Cloud project.
+          </>
+        )}
       </div>
       <Panel title="Where each part runs" flush>
         <table className="tbl min-w-[680px]">

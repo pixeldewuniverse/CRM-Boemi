@@ -20,7 +20,7 @@ ORM: **Drizzle** + driver `postgres` standar (tanpa fitur khusus Neon). Auth: se
 
 ```bash
 npm install
-cp .env.example .env          # isi DATABASE_URL, SESSION_SECRET, CRON_SECRET, SEED_ADMIN_PASSWORD
+cp .env.example .env          # isi DATABASE_URL, SESSION_SECRET, CRON_SECRET, SEED_ADMIN_PASSWORD (STORAGE_DRIVER=local)
 npm run db:migrate            # jalankan migrasi ke database
 npm run db:seed               # data dummy: admin/manager/sales @example.test
 npm run dev
@@ -46,7 +46,8 @@ Login dengan `sales@example.test` (atau `admin@` / `manager@`) dan password dari
 | `npm run db:generate` | Buat file migrasi dari perubahan `src/db/schema.ts` |
 | `npm run db:migrate` | Terapkan migrasi (pakai `DATABASE_URL_UNPOOLED` bila ada) |
 | `npm run db:studio` | Drizzle Studio |
-| `npm run db:seed` | Isi data dummy |
+| `npm run db:seed` | Isi data dummy (staging saja) |
+| `npm run admin:create` | Buat/reset Super Admin di database production kosong (`ADMIN_EMAIL`, `ADMIN_NAME`, `ADMIN_PASSWORD`) |
 
 ## Struktur
 
@@ -314,24 +315,70 @@ Env: `JOURNEY_SYNC_KEY` (string acak ≥ 32 karakter, sama dengan `CRM_SYNC_KEY`
 
 ## Cron
 
-| Job | Jadwal (UTC) | Fungsi |
-| --- | --- | --- |
-| `/api/cron/task-reminders` | 00:00 (07:00 WIB) | Pengingat tugas ≤ 24 jam & terlambat (tidak dobel dalam 20 jam) |
-| `/api/cron/pending-visit-fees` | 01:00 (08:00 WIB) | Ingatkan approver soal visit fee > 24 jam |
-| `/api/cron/daily-digest` | 23:30 (06:30 WIB) | Ringkasan harian untuk Executive & Sales Manager (sekali per hari) |
-| `/api/cron/expire-quotations` | 17:05 (00:05 WIB) | Quotation *sent* yang lewat *valid until* → *expired* (tercatat di audit trail sebagai System) |
-| `/api/cron/qualification-queue` | Vercel: 00:20 · Cloud Scheduler: **tiap 5 menit** | Sisa antrian skor lead/account (normalnya sudah diproses langsung setelah request lewat `after()`), retry AI, bersihkan job lama |
-| `/api/cron/lead-sla` | Vercel: 01:00 (08:00 WIB) · Cloud Scheduler: **tiap jam** | Pengingat lead yang lewat SLA kontak (sekali per jendela kontak) + eskalasi ke manager setelah +1 hari |
+Semua job adalah `GET /api/cron/<job>` dengan header **`Authorization: Bearer $CRON_SECRET`** (tanpa header / salah → 401).
 
-Vercel Hobby hanya mengizinkan cron harian, jadi di staging keduanya sekali sehari; di Cloud Run pakai interval di atas. Semua job butuh header `Authorization: Bearer $CRON_SECRET`. Vercel Cron mengirim header ini otomatis bila `CRON_SECRET` diset.
+| Job | Cloud Scheduler (WIB, `Asia/Jakarta`) | Vercel Cron (staging, UTC) | Fungsi |
+| --- | --- | --- | --- |
+| `/api/cron/task-reminders` | `0 7 * * *` — 07:00 | `0 0 * * *` | Pengingat tugas ≤ 24 jam & terlambat (tidak dobel dalam 20 jam) |
+| `/api/cron/pending-visit-fees` | `0 8 * * *` — 08:00 | `0 1 * * *` | Ingatkan approver soal permintaan > 24 jam |
+| `/api/cron/daily-digest` | `30 6 * * *` — 06:30 | `30 23 * * *` | Ringkasan harian untuk Executive & Department Head |
+| `/api/cron/expire-quotations` | `5 0 * * *` — 00:05 | `5 17 * * *` | Quotation *sent* lewat *valid until* → *expired* |
+| `/api/cron/qualification-queue` | `*/5 * * * *` — tiap 5 menit | `20 0 * * *` | Sisa antrian skor lead/account, retry AI, bersihkan job lama |
+| `/api/cron/lead-sla` | `10 8-20 * * *` — tiap jam 08:10–20:10 | `0 1 * * *` | Lead lewat SLA kontak → owner, +1 hari → manager |
+
+- **Cloud Scheduler**: `deploy/cloud-scheduler.sh` membuat/memperbarui keenam job (nama `smt-<job>`, zona waktu Asia/Jakarta, header Bearer). Contoh pemakaian ada di kepala file.
+- **Vercel**: terdaftar di `vercel.json`. Vercel Hobby hanya boleh cron harian, jadi antrian & SLA di staging sekali sehari; antrian tetap diproses langsung lewat `after()`.
 
 ## Pindah ke Google Cloud BOEMI
 
-1. **Database:** buat Cloud SQL PostgreSQL (region `asia-southeast2` Jakarta), lalu `pg_dump` dari Neon → `pg_restore` ke Cloud SQL (atau mulai bersih dengan `npm run db:migrate`).
-2. **Storage:** buat bucket Cloud Storage (private), set `STORAGE_DRIVER=gcs` dan `GCS_BUCKET`. Salin file dari Blob bila perlu.
-3. **Deploy:** `docker build` → Artifact Registry → Cloud Run. Pasang service account dengan akses Cloud SQL + bucket. Simpan secret di Secret Manager.
-4. **Cron:** buat 4 job Cloud Scheduler (lihat tabel di atas) dengan header Authorization yang sama.
-5. **Domain:** arahkan domain ke Cloud Run, set `APP_URL`.
+Logika bisnis tidak bergantung pada Vercel/Neon. Yang khusus staging hanya bisa diganti lewat env:
+
+| Bagian | Staging | Production | Cara ganti |
+| --- | --- | --- | --- |
+| Database | Neon (pooled + unpooled) | Cloud SQL PostgreSQL | `DATABASE_URL` (+ `DATABASE_URL_UNPOOLED` untuk migrasi). Driver `postgres` standar; `prepare: false` aman di keduanya. |
+| File | Vercel Blob privat | Cloud Storage privat | `STORAGE_DRIVER=gcs` + `GCS_BUCKET`. Kredensial dari service account, tanpa file key. |
+| Cron | `vercel.json` | Cloud Scheduler | `deploy/cloud-scheduler.sh`, header & path sama. |
+| AI kualifikasi | Gemini API | Vertex AI | `QUALIFICATION_AI_PROVIDER=vertex` + `VERTEX_PROJECT`/`VERTEX_LOCATION`. |
+| Build | `vercel-build` (migrate + seed opsional) | `Dockerfile` (tanpa seed) | — |
+
+`vercel.json`, script `vercel-build` dan driver `vercel-blob` hanya dipakai di Vercel dan boleh dibiarkan.
+
+**Langkah:**
+
+1. **Database:** buat Cloud SQL PostgreSQL di `asia-southeast2` (Jakarta). Aktifkan ekstensi `pg_trgm` untuk search; tanpa ekstensi ini aplikasi tetap jalan.
+2. **Migrasi:** `docker build --target migrate -t …-migrate .`, lalu jalankan sebagai **Cloud Run Job** dengan `DATABASE_URL`. Jalankan setiap rilis, sebelum revisi baru menerima trafik. Data staging adalah dummy, jadi **mulai bersih** — jangan `pg_dump` dari Neon. Data customer asli hanya diimpor di Google Cloud.
+3. **Storage:** buat bucket privat, set `STORAGE_DRIVER=gcs` dan `GCS_BUCKET`.
+4. **Secrets:** semua variabel di `.env.example` disimpan di Secret Manager dan dipasang ke Cloud Run. `VAPID_*` pakai kunci yang sama dengan staging bila perangkat yang sudah terdaftar ingin dipertahankan. **Jangan set `SEED_ADMIN_PASSWORD` di production.**
+5. **Deploy:** `docker build` → Artifact Registry → Cloud Run (`asia-southeast2`, port 8080, health check `/api/health`).
+   - Service account butuh role: *Cloud SQL Client*, *Storage Object Admin* (bucket itu saja), *Vertex AI User*, *Secret Manager Secret Accessor*.
+   - Pekerjaan setelah respons (`after()`: antrian skor) butuh CPU tetap jalan. Pakai **CPU always allocated** (`--no-cpu-throttling`) atau andalkan cron `qualification-queue` tiap 5 menit.
+6. **Cron:** `PROJECT=… REGION=asia-southeast2 APP_URL=… CRON_SECRET=… bash deploy/cloud-scheduler.sh`.
+7. **Domain & integrasi:** arahkan domain ke Cloud Run, set `APP_URL`. Di situs journey, ubah `CRM_SYNC_URL` ke domain baru (kunci tetap sama).
+8. **Admin pertama** (database kosong, tanpa data demo): `ADMIN_EMAIL=… ADMIN_NAME=… ADMIN_PASSWORD='…' npm run admin:create`. Jalankan lewat Cloud SQL Auth Proxy; password minimal 12 karakter dan wajib diganti saat login pertama. Admin lalu membuat user lain di **Setting → Users & Roles** atau lewat import Employees. Login Google Workspace menyusul.
+
+### Environment variables
+
+Daftar lengkap dengan contoh ada di **`.env.example`**.
+
+| Variabel | Wajib | Fungsi |
+| --- | --- | --- |
+| `APP_URL` | ✓ | URL publik (link email, kontak push) |
+| `SESSION_SECRET` | ✓ | ≥ 32 karakter, menandatangani cookie sesi |
+| `CRON_SECRET` | ✓ | Bearer untuk `/api/cron/*` |
+| `DATABASE_URL` | ✓ | Koneksi aplikasi |
+| `DATABASE_URL_UNPOOLED` | | Koneksi langsung untuk migrasi/seed (Neon) |
+| `DATABASE_POOL_MAX` | | Koneksi per instance (default 5) |
+| `STORAGE_DRIVER` | ✓ | `vercel-blob` \| `gcs` \| `local` (default `vercel-blob`) |
+| `BLOB_READ_WRITE_TOKEN` | staging | Token Vercel Blob (diset otomatis oleh Vercel) |
+| `GCS_BUCKET` | production | Bucket Cloud Storage privat |
+| `LOCAL_UPLOAD_DIR` | dev | Folder upload lokal |
+| `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `EMAIL_FROM` | | Email; tanpa `SMTP_HOST` email hanya di-log |
+| `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` | | Push notification |
+| `JOURNEY_SYNC_KEY` | | Webhook situs journey |
+| `QUALIFICATION_AI`, `QUALIFICATION_AI_PROVIDER`, `QUALIFICATION_MODEL` | | Lapis AI kualifikasi |
+| `GEMINI_API_KEY` | staging | Provider `gemini` |
+| `VERTEX_PROJECT`, `VERTEX_LOCATION` | production | Provider `vertex` |
+| `SEED_ADMIN_PASSWORD` | staging | Password akun demo; hapus setelah seed pertama |
 
 ## Belum dikerjakan (berikutnya)
 

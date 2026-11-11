@@ -12,7 +12,8 @@
     "db:migrate": "drizzle-kit migrate",
     "db:studio": "drizzle-kit studio",
     "db:seed": "tsx src/db/seed.ts",
-    "vercel-build": "drizzle-kit migrate && tsx src/db/seed.ts --optional && next build"
+    "vercel-build": "drizzle-kit migrate && tsx src/db/seed.ts --optional && next build",
+    "admin:create": "tsx scripts/create-admin.ts"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
