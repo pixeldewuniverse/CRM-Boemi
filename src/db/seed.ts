@@ -151,6 +151,7 @@ async function main() {
         await ensureBatch6Demo(tx as unknown as Db);
         await ensureBatch7Demo(tx as unknown as Db);
         await ensureBatch8Demo(tx as unknown as Db);
+        await ensureBatch9Demo(tx as unknown as Db);
       });
       return console.log("Demo data already present — skipping seed (batch 1 demo data checked).");
     }
@@ -176,6 +177,7 @@ async function main() {
       await ensureBatch6Demo(tx as unknown as Db);
       await ensureBatch7Demo(tx as unknown as Db);
       await ensureBatch8Demo(tx as unknown as Db);
+      await ensureBatch9Demo(tx as unknown as Db);
     });
     console.log("Seeded demo data: 8 users, 14 products, 12 accounts, leads, deals, quotations, orders (+12-month history), visits, tasks, campaigns, events, content.");
   } finally {
@@ -832,6 +834,16 @@ async function ensureBatch8Demo(db: Db) {
     await db.insert(schema.contentActivity).values(acts);
     if (assets.length) await db.insert(schema.contentAssets).values(assets);
   }
+}
+
+/* ── batch 9: default board tabs (board default + one personal default) ── */
+async function ensureBatch9Demo(db: Db) {
+  const [any] = await db.select({ u: schema.boardViewPrefs.userId }).from(schema.boardViewPrefs).limit(1);
+  if (any) return;
+  await db.update(schema.boards).set({ defaultView: "kanban" }).where(and(eq(schema.boards.name, "Content Requests"), sql`${schema.boards.defaultView} is null`));
+  const [pm] = await db.select({ id: schema.users.id }).from(schema.users).where(eq(schema.users.email, "pm@example.test"));
+  const [project] = await db.select({ id: schema.boards.id }).from(schema.boards).where(and(eq(schema.boards.kind, "project"), sql`${schema.boards.name} like 'Alas Harum%'`)).limit(1);
+  if (pm && project) await db.insert(schema.boardViewPrefs).values({ userId: pm.id, boardId: project.id, view: "timeline" });
 }
 
 /** Personas added after the first demo seed (safe to run on every deploy). */

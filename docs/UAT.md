@@ -99,6 +99,9 @@ Umum untuk semua skenario:
 | PM-06 | Tab **Workload** (kapasitas 20 jam), **Dashboard**. | Sel merah/oranye saat beban > kapasitas; klik sel menampilkan item. Dashboard menampilkan progress, overdue, budget. | |
 | PM-07 | **Members**: tambah Made sebagai Viewer; Sri sebagai Editor *own items only*. | Tersimpan; tercatat di audit. | |
 | PM-08 | Item dependency: tambah dependency yang membuat loop. | Ditolak "That would create a loop…". | |
+| PM-09 | Buka project Alas Harum tanpa memilih tab. Buka juga link `…?view=kanban`. | Terbuka di **Timeline** (default pribadi ★, "Your default"); link Kanban tetap membuka Kanban. | |
+| PM-10 | Di HP (≤ 375 px) buka project yang sama. | Terbuka di Main Table (Timeline terlalu lebar), tetap bisa pindah ke Timeline manual. | |
+| PM-11 | **Edit details → Opens on: Dashboard**; minta Made (Staff) membuka project. | Made melihat Dashboard; perubahan tercatat di audit. | |
 
 ## Designer — Sri (`designer@`)
 
@@ -111,6 +114,7 @@ Umum untuk semua skenario:
 | DSG-05 | Klik **Submit for review** pada post *In design* yang belum punya file (mis. *Eco-friendly amenities*). Lalu upload file → submit lagi. | Pertama ditolak "Upload the design (v1)…"; setelah upload → *In review*, writer dapat notifikasi. | |
 | DSG-06 | Post *Revision* (*Hamper pre-orders are open*): baca catatan revisi, upload v2, **Resubmit for review**. | Catatan merah terlihat; v2 tersimpan terpisah dari v1; v1 tidak bisa dihapus. | |
 | DSG-07 | Coba drag post di kalender; cari tombol **+ Brief**. | Post tidak bisa di-drag; tidak ada tombol brief (hanya pihak writer). | |
+| DSG-09 | Project Alas Harum → tab **Kanban** → **Set Kanban as my default**; buka lagi dari daftar Projects; lalu **Reset**. | Board terbuka di Kanban untuk Sri saja (user lain tidak berubah); setelah Reset kembali ke default board. | |
 | DSG-08 | `/report/sales`, `/settings/audit`. | Ditolak. | |
 
 ## Marketing User — Wulan (`marketing@`)

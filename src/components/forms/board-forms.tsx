@@ -2,6 +2,7 @@
 
 /** Boards & projects: create / edit, members, project status. */
 import { archiveBoard, removeBoardMember, saveBoardMember, setProjectStatus, submitProject, createBoard, updateBoard } from "@/app/actions/boards";
+import { BOARD_VIEWS, BOARD_VIEW_LABEL } from "@/lib/boards/views";
 import { BOARD_VISIBILITY } from "@/lib/labels";
 import { ActionButton, ConfirmButton } from "./action-button";
 import { CheckboxField, FormNote, SelectField, TextArea, TextField, type Option } from "./fields";
@@ -36,6 +37,7 @@ export type BoardValues = {
   startOn: string | null;
   dueOn: string | null;
   dependencyMode: string;
+  defaultView?: string | null;
 };
 
 function BoardFields({ project, o, b }: { project: boolean; o: BoardFormOptions; b?: BoardValues }) {
@@ -56,7 +58,14 @@ function BoardFields({ project, o, b }: { project: boolean; o: BoardFormOptions;
           <TextField name="dueOn" label="Due" type="date" defaultValue={b?.dueOn ?? ""} />
         </>
       )}
-      <SelectField name="dependencyMode" label="Dependencies" options={DEP_MODE} defaultValue={b?.dependencyMode ?? "flexible"} wide />
+      <SelectField name="dependencyMode" label="Dependencies" options={DEP_MODE} defaultValue={b?.dependencyMode ?? "flexible"} />
+      <SelectField
+        name="defaultView"
+        label="Opens on"
+        options={BOARD_VIEWS.map((v) => ({ value: v, label: BOARD_VIEW_LABEL[v] }))}
+        defaultValue={b?.defaultView ?? "table"}
+        hint="Default tab for everyone. Each person can still set their own."
+      />
     </>
   );
 }

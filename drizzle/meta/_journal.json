@@ -92,6 +92,13 @@
       "when": 1794373655303,
       "tag": "0012_content_calendar",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1794715973561,
+      "tag": "0013_board_default_view",
+      "breakpoints": true
     }
   ]
 }

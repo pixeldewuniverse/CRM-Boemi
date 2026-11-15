@@ -189,6 +189,13 @@ Yang boleh membuat board/project: Super Admin, Department Head, Project Manager,
 
 Migrasi Batch 5a: `drizzle/0009_boards.sql` (9 tabel board + enum). Tidak ada library baru (`@dnd-kit/sortable` sudah ada sejak Batch 4).
 
+**Tab default per user.** Semua tab membaca item yang sama; yang berbeda cara melihat dan aksi khususnya (Kanban: drag status, Timeline: jadwal & dependency, Calendar: drag tanggal, Workload & Dashboard: hanya membaca). Tab yang terbuka saat board dibuka ditentukan berurutan:
+1. link dengan `?view=` (notifikasi, link yang dibagikan, klik tab);
+2. pilihan user sendiri untuk board itu — tombol **Set … as my default** / **Reset** di bar tab (tabel `board_view_prefs`, tersimpan di server jadi ikut ke HP);
+3. default board dari owner — **Edit details → Opens on** (`boards.default_view`, tercatat di audit);
+4. Main Table.
+Tab default ditandai ★. Di layar < 768 px, default Timeline/Workload dibuka sebagai Main Table (link eksplisit tetap dihormati). Seed: Content Requests default Kanban; PM Rizky memakai Timeline sebagai default pribadi di project Alas Harum.
+
 ### Reporting dasar (Batch 6)
 
 - **Sales Forecast** (`/sales/forecast`, menu Sales; kartu *Forecast* di Overview): per bulan berdasarkan `expected_close_on`, per rep & total, 3/6/12 bulan ke depan.

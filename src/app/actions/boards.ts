@@ -11,6 +11,7 @@ import { verifyUser, type CurrentUser } from "@/lib/auth";
 import { canCreateBoards, headedDepartments, loadBoard } from "@/lib/boards/access";
 import { CUSTOM_TYPES, DEFAULT_STATUS_LABELS, GROUP_COLORS, LABEL_COLORS, STATUS_CATEGORIES, type CustomType } from "@/lib/boards/columns";
 import { between } from "@/lib/boards/positions";
+import { BOARD_VIEWS } from "@/lib/boards/views";
 import { scaffoldBoard } from "@/lib/boards/write";
 import { customerScope } from "@/lib/customers";
 import { fieldErrors, formObject, parseRupiah, type FormState } from "@/lib/forms";
@@ -41,6 +42,7 @@ const BoardInput = z.object({
   startOn: z.iso.date("Pick a date.").optional(),
   dueOn: z.iso.date("Pick a date.").optional(),
   dependencyMode: z.enum(["strict", "flexible", "none"]).default("flexible"),
+  defaultView: z.enum(BOARD_VIEWS).optional(),
 });
 
 async function boardValues(user: CurrentUser, fd: FormData, current?: { departmentId: string | null }) {
@@ -77,6 +79,7 @@ async function boardValues(user: CurrentUser, fd: FormData, current?: { departme
       startOn: project ? (d.startOn ?? null) : null,
       dueOn: project ? (d.dueOn ?? null) : null,
       dependencyMode: d.dependencyMode,
+      defaultView: d.defaultView && d.defaultView !== "table" ? d.defaultView : null,
     },
   } as const;
 }
@@ -127,6 +130,29 @@ export async function updateBoard(_prev: FormState, fd: FormData): Promise<FormS
   await audit({ actorId: user.id, action: "update", entity: found.board.kind === "project" ? "project" : "board", entityId: rest.name, changes });
   refresh();
   return { ok: true, message: "Saved." };
+}
+
+/**
+ * "Set as my default": the tab this board opens on for the signed-in user
+ * (null = back to the board's default). Anyone who can open the board.
+ */
+export async function setMyBoardView(input: { boardId: string; view: string | null }): Promise<Result> {
+  const user = await verifyUser();
+  const p = z.object({ boardId: z.uuid(), view: z.enum(BOARD_VIEWS).nullable() }).safeParse(input);
+  if (!p.success) return fail("Invalid view.");
+  const found = await loadBoard(user, p.data.boardId);
+  if (!found) return fail("Board not found.");
+  const db = getDb();
+  const t = schema.boardViewPrefs;
+  if (p.data.view) {
+    await db
+      .insert(t)
+      .values({ userId: user.id, boardId: p.data.boardId, view: p.data.view })
+      .onConflictDoUpdate({ target: [t.userId, t.boardId], set: { view: p.data.view, updatedAt: new Date() } });
+  } else {
+    await db.delete(t).where(and(eq(t.userId, user.id), eq(t.boardId, p.data.boardId)));
+  }
+  return { ok: true };
 }
 
 /** Project → approval engine ("project" workflows). No active workflow → active at once. */

@@ -932,6 +932,8 @@ export const boards = pgTable(
     dueOn: date("due_on"),
     approvalRequestId: uuid("approval_request_id").references(() => approvalRequests.id, { onDelete: "set null" }),
     dependencyMode: dependencyModeEnum("dependency_mode").notNull().default("flexible"),
+    /** Tab the board opens on when the user hasn't picked their own (null = Main Table). */
+    defaultView: text("default_view"),
     archivedAt: timestamp("archived_at", { withTimezone: true }),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
@@ -1088,6 +1090,22 @@ export const boardViews = pgTable(
     position: doublePrecision("position").notNull(),
   },
   (t) => [index("board_views_board_idx").on(t.boardId, t.position)],
+);
+
+/** Each user's own default tab per board ("Set as my default"). */
+export const boardViewPrefs = pgTable(
+  "board_view_prefs",
+  {
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    boardId: uuid("board_id")
+      .notNull()
+      .references(() => boards.id, { onDelete: "cascade" }),
+    view: text("view").notNull(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [primaryKey({ columns: [t.userId, t.boardId] })],
 );
 
 /* ─────────────────────────── KPI ─────────────────────────── */

@@ -2,7 +2,9 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { and, asc, eq, inArray, or, sql } from "drizzle-orm";
-import { BoardTable, type BoardView } from "@/components/board-table/board-table";
+import { BoardTable } from "@/components/board-table/board-table";
+import { ViewTabs } from "@/components/board-table/view-tabs";
+import { isBoardView, resolveView } from "@/lib/boards/views";
 import type { Column, GroupData, ItemRow, Person } from "@/components/board-table/types";
 import { Toaster } from "@/components/board-table/ui";
 import { ArchiveBoardButton, EditBoardButton, MembersButton, ProjectStatusActions } from "@/components/forms/board-forms";
@@ -34,8 +36,12 @@ export default async function BoardPage({ params, searchParams }: PageProps<"/pr
   const found = await loadBoard(user, boardId);
   if (!found) notFound();
   const { board, access } = found;
-  const VIEWS = ["kanban", "timeline", "calendar", "workload", "dashboard"] as const;
-  const view: BoardView = VIEWS.find((v) => v === sp.view) ?? "table";
+  const [pref] = await getDb()
+    .select({ view: schema.boardViewPrefs.view })
+    .from(schema.boardViewPrefs)
+    .where(and(eq(schema.boardViewPrefs.userId, user.id), eq(schema.boardViewPrefs.boardId, boardId)));
+  // ?view= link → my default for this board → the board's default → Main Table.
+  const { view, source } = resolveView(sp.view, pref?.view, board.defaultView);
   const kanban = view === "kanban";
   const allInGroups = view !== "table" && view !== "kanban";
   const p = { ...parseBoardParams(sp), ...(view !== "table" ? { groupBy: undefined } : {}) };
@@ -141,7 +147,7 @@ export default async function BoardPage({ params, searchParams }: PageProps<"/pr
       </nav>
       <div className="flex flex-wrap items-start gap-3">
         <div className="min-w-0 flex-1 basis-72">
-          <h1 className="text-[26px] font-bold leading-tight tracking-[-0.02em] md:text-[28px]">{board.name}</h1>
+          <h1 className="font-display text-[28px] leading-tight md:text-[32px]">{board.name}</h1>
           <div className="mt-1 flex flex-wrap items-center gap-2 text-[13px]">
             {board.code && <span className="font-semibold">{board.code}</span>}
             {project ? <StatusPill map={PROJECT_STATUS} value={board.projectStatus} /> : <Pill>Team board</Pill>}
@@ -156,7 +162,7 @@ export default async function BoardPage({ params, searchParams }: PageProps<"/pr
           {access.manage && !archived && (
             <EditBoardButton
               o={editOptions}
-              b={{ id: board.id, kind: board.kind, name: board.name, description: board.description, departmentId: board.departmentId, visibility: board.visibility, priority: board.priority, customerId: board.customerId, opportunityId: board.opportunityId, budget: board.budget, actualCost: board.actualCost, startOn: board.startOn, dueOn: board.dueOn, dependencyMode: board.dependencyMode }}
+              b={{ id: board.id, kind: board.kind, name: board.name, description: board.description, departmentId: board.departmentId, visibility: board.visibility, priority: board.priority, customerId: board.customerId, opportunityId: board.opportunityId, budget: board.budget, actualCost: board.actualCost, startOn: board.startOn, dueOn: board.dueOn, dependencyMode: board.dependencyMode, defaultView: board.defaultView }}
             />
           )}
           {access.manage && <ArchiveBoardButton id={board.id} archived={archived} />}
@@ -173,27 +179,14 @@ export default async function BoardPage({ params, searchParams }: PageProps<"/pr
       )}
       {archived && <p className="rounded-lg bg-surface-2 px-3 py-2 text-[13px] text-muted">This board is archived and read-only.</p>}
 
-      <nav aria-label="Board views" className="flex gap-1 overflow-x-auto border-b border-line">
-        {[
-          { label: "Main Table", v: "table" },
-          { label: "Kanban", v: "kanban" },
-          { label: "Timeline", v: "timeline" },
-          { label: "Calendar", v: "calendar" },
-          { label: "Workload", v: "workload" },
-          { label: "Dashboard", v: "dashboard" },
-        ]
-          .map((v) => ({ ...v, on: view === v.v, query: v.v === "table" ? keepFilters : { ...keepFilters, view: v.v } }))
-          .map((v) => (
-          <Link
-            key={v.label}
-            href={{ pathname: `/projects/${board.id}`, query: v.query }}
-            aria-current={v.on ? "page" : undefined}
-            className={`whitespace-nowrap border-b-2 px-3 py-2 text-[13px] ${v.on ? "border-accent font-semibold text-accent" : "border-transparent text-muted hover:text-fg"}`}
-          >
-            {v.label}
-          </Link>
-        ))}
-      </nav>
+      <ViewTabs
+        boardId={board.id}
+        view={view}
+        source={source}
+        mine={isBoardView(pref?.view) ? pref.view : null}
+        boardDefault={isBoardView(board.defaultView) ? board.defaultView : null}
+        filters={keepFilters}
+      />
 
       <BoardTable
         key={stamp}
