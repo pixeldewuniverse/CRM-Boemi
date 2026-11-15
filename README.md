@@ -194,7 +194,7 @@ Migrasi Batch 5a: `drizzle/0009_boards.sql` (9 tabel board + enum). Tidak ada li
 2. pilihan user sendiri untuk board itu — tombol **Set … as my default** / **Reset** di bar tab (tabel `board_view_prefs`, tersimpan di server jadi ikut ke HP);
 3. default board dari owner — **Edit details → Opens on** (`boards.default_view`, tercatat di audit);
 4. Main Table.
-Tab default ditandai ★. Di layar < 768 px, default Timeline/Workload dibuka sebagai Main Table (link eksplisit tetap dihormati). Seed: Content Requests default Kanban; PM Rizky memakai Timeline sebagai default pribadi di project Alas Harum.
+Tab default ditandai ★. Di layar < 768 px bar tab diganti satu dropdown **View: … ▾** (enam tampilan + Set as my default / Reset), dan default Timeline/Workload dibuka sebagai Main Table (link eksplisit tetap dihormati). Seed: Content Requests default Kanban; PM Rizky memakai Timeline sebagai default pribadi di project Alas Harum.
 
 ### Reporting dasar (Batch 6)
 
